@@ -1,4 +1,4 @@
-﻿<html lang="id">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -604,24 +604,31 @@ function updateScheduleUI() {
 
         setInterval(() => {
     const d = new Date();
-    const isFriday = d.getDay() === 5; // Cek hari Jumat
-    const timeStr = d.toLocaleTimeString('id-ID', { hour12: false });
+    // Bikin format jam yang PASTI pakai titik dua (HH:mm:ss)
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    const timeStr = `${h}:${m}:${s}`; 
+
     document.getElementById('live-clock').innerText = timeStr;
 
-    // Tentukan jam pulang berdasarkan hari
+    const isFriday = d.getDay() === 5;
     const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
     const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
     const shiftEl = document.getElementById('current-shift');
 
+    // LOGIKA PENENTU STATUS DI BANNER
     if (timeStr >= sExit && timeStr <= eExit) {
+        // Ini yang bikin warna BIRU pas jam pulang
         shiftEl.innerHTML = '<span class="status-dot bg-blue-500"></span> Jam Pulang';
     } else if (timeStr < CONFIG.START_TIME) {
         shiftEl.innerHTML = '<span class="status-dot bg-slate-500"></span> Belum Dibuka';
     } else if (timeStr <= CONFIG.LATE_TIME) {
         shiftEl.innerHTML = '<span class="status-dot bg-emerald-500"></span> On Time';
     } else if (timeStr <= CONFIG.LATE_DEADLINE) {
-        shiftEl.innerHTML = '<span class="status-dot bg-amber-500"></span> Terlambat (Batas 07:45)';
+        shiftEl.innerHTML = `<span class="status-dot bg-amber-500"></span> Terlambat (Batas ${CONFIG.LATE_DEADLINE.substring(0,5)})`;
     } else {
+        // Ini yang bikin warna MERAH kalau di luar jam-jam di atas
         shiftEl.innerHTML = '<span class="status-dot bg-red-500"></span> Absen Ditutup';
     }
 }, 1000);
