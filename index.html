@@ -291,8 +291,7 @@
         }
     };
 </script>
-
-    <script>
+<script>
 const isMonday = new Date().getDay() === 1;
 
 const CONFIG = {
@@ -602,311 +601,218 @@ function updateScheduleUI() {
         let html5QrScanner;
         let currentFilter = 'daily';
 
+        // 1. JAM LIVE & STATUS BANNER (PASTI FORMAT HH:mm:ss)
         setInterval(() => {
-    const d = new Date();
-    // Bikin format jam yang PASTI pakai titik dua (HH:mm:ss)
-    const h = String(d.getHours()).padStart(2, '0');
-    const m = String(d.getMinutes()).padStart(2, '0');
-    const s = String(d.getSeconds()).padStart(2, '0');
-    const timeStr = `${h}:${m}:${s}`; 
+            const d = new Date();
+            const h = String(d.getHours()).padStart(2, '0');
+            const m = String(d.getMinutes()).padStart(2, '0');
+            const s = String(d.getSeconds()).padStart(2, '0');
+            const timeStr = `${h}:${m}:${s}`; 
 
-    document.getElementById('live-clock').innerText = timeStr;
+            document.getElementById('live-clock').innerText = timeStr;
 
-    const isFriday = d.getDay() === 5;
-    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-    const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-    const shiftEl = document.getElementById('current-shift');
+            const isFriday = d.getDay() === 5;
+            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+            const shiftEl = document.getElementById('current-shift');
 
-    // LOGIKA PENENTU STATUS DI BANNER
-    if (timeStr >= sExit && timeStr <= eExit) {
-        // Ini yang bikin warna BIRU pas jam pulang
-        shiftEl.innerHTML = '<span class="status-dot bg-blue-500"></span> Jam Pulang';
-    } else if (timeStr < CONFIG.START_TIME) {
-        shiftEl.innerHTML = '<span class="status-dot bg-slate-500"></span> Belum Dibuka';
-    } else if (timeStr <= CONFIG.LATE_TIME) {
-        shiftEl.innerHTML = '<span class="status-dot bg-emerald-500"></span> On Time';
-    } else if (timeStr <= CONFIG.LATE_DEADLINE) {
-        shiftEl.innerHTML = `<span class="status-dot bg-amber-500"></span> Terlambat (Batas ${CONFIG.LATE_DEADLINE.substring(0,5)})`;
-    } else {
-        // Ini yang bikin warna MERAH kalau di luar jam-jam di atas
-        shiftEl.innerHTML = '<span class="status-dot bg-red-500"></span> Absen Ditutup';
-    }
-}, 1000);
+            if (timeStr >= sExit && timeStr <= eExit) {
+                shiftEl.innerHTML = '<span class="status-dot bg-blue-500"></span> Jam Pulang';
+            } else if (timeStr < CONFIG.START_TIME) {
+                shiftEl.innerHTML = '<span class="status-dot bg-slate-500"></span> Belum Dibuka';
+            } else if (timeStr <= CONFIG.LATE_TIME) {
+                shiftEl.innerHTML = '<span class="status-dot bg-emerald-500"></span> On Time';
+            } else if (timeStr <= CONFIG.LATE_DEADLINE) {
+                shiftEl.innerHTML = `<span class="status-dot bg-amber-500"></span> Terlambat`;
+            } else {
+                shiftEl.innerHTML = '<span class="status-dot bg-red-500"></span> Absen Ditutup';
+            }
+        }, 1000);
 
-        function setFilter(type) {
-            currentFilter = type;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`f-${type}`).classList.add('active');
-            updateDashboard();
+        // 2. UI FEEDBACK FUNCTIONS (PENTING: Biar gak error pas dipanggil)
+        function showSuccess(name, time) {
+            const layer = document.getElementById('cooldown-layer');
+            document.getElementById('cooldown-name').innerText = name;
+            document.getElementById('cooldown-status').innerText = "BERHASIL ABSEN";
+            document.getElementById('cooldown-icon-box').className = "w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-bounce bg-emerald-500";
+            layer.classList.remove('hidden');
+            setTimeout(() => { layer.classList.add('hidden'); }, 3000);
+        }
+
+        function showError(title, msg) {
+            const layer = document.getElementById('cooldown-layer');
+            document.getElementById('cooldown-name').innerText = msg;
+            document.getElementById('cooldown-status').innerText = title;
+            document.getElementById('cooldown-icon-box').className = "w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-shake bg-red-500";
+            layer.classList.remove('hidden');
+            setTimeout(() => { layer.classList.add('hidden'); isProcessing = false; }, 3000);
+        }
+
+        // 3. SCANNER ENGINE
+        async function initScanner() {
+            document.getElementById('start-layer').classList.add('hidden');
+            document.getElementById('scan-line-element').style.display = 'block';
+            html5QrScanner = new Html5Qrcode("reader");
+            try {
+                await html5QrScanner.start(
+                    { facingMode: "environment" }, 
+                    { fps: 30, qrbox: { width: 350, height: 350 }, aspectRatio: 1.0 }, 
+                    onScanSuccess
+                );
+            } catch (err) { alert("Kamera Error: " + err); }
+        }
+
+        function onScanSuccess(decodedText) {
+            if (isProcessing) return;
+
+            const cleanId = decodedText.trim().replace(/^0+/, '');
+            const student = siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId);
+
+            if (!student) {
+                document.getElementById('snd-error').play();
+                showError("DATA TIDAK ADA", "Kartu tidak terdaftar!");
+                return;
+            }
+
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${h}:${m}:${s}`;
+            const today = now.toLocaleDateString('id-ID');
+            const isFriday = now.getDay() === 5;
+            
+            const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
+            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+
+            // FILTER LOGIKA
+            if (timeStr < sExit) {
+                if (timeStr > CONFIG.LATE_DEADLINE) {
+                    document.getElementById('snd-warning').play();
+                    showError("ABSEN DITUTUP", "Batas Pagi Lewat!");
+                    return;
+                }
+                if (existing) {
+                    document.getElementById('snd-warning').play();
+                    showError("SUDAH ABSEN", "Anda sudah absen pagi!");
+                    return;
+                }
+            } else if (timeStr >= sExit && timeStr <= eExit) {
+                if (existing && existing.pukul_pulang) {
+                    document.getElementById('snd-warning').play();
+                    showError("SUDAH ABSEN", "Anda sudah absen pulang!");
+                    return;
+                }
+            } else {
+                document.getElementById('snd-warning').play();
+                showError("JADWAL KOSONG", "Belum waktunya absen!");
+                return;
+            }
+
+            isProcessing = true;
+            processAttendance(student, timeStr, today, existing);
+        }
+
+        // 4. FIREBASE ENGINE (FIXED MODULAR)
+        function processAttendance(student, timeStr, today, existing) {
+            const isFriday = new Date().getDay() === 5;
+            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+            const isExit = timeStr >= sExit && timeStr <= eExit;
+
+            const dataToUpdate = {
+                id: student.id,
+                name: student.nama,
+                class: student.kelas,
+                date: today,
+                timestamp: Date.now()
+            };
+
+            if (isExit) {
+                dataToUpdate.pukul_pulang = timeStr;
+            } else {
+                dataToUpdate.time = timeStr;
+                dataToUpdate.late = timeStr > CONFIG.LATE_TIME;
+            }
+
+            // Path Firebase: Ganti garing (/) jadi strip (-) biar gak error URL
+            const cleanDate = today.replace(/\//g, '-');
+            const attendancePath = `absensi/${cleanDate}/${student.id}`;
+
+            // PENTING: Pakai window.db & window.fbRef (Modular Version)
+            const dbRef = window.fbRef(window.db, attendancePath);
+            
+            window.fbUpdate(dbRef, dataToUpdate).then(() => {
+                // Update Local Memory
+                const idx = attendanceData.findIndex(a => a.id === student.id && a.date === today);
+                if (idx > -1) attendanceData[idx] = {...attendanceData[idx], ...dataToUpdate};
+                else attendanceData.push(dataToUpdate);
+                
+                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
+                
+                document.getElementById('snd-success').play();
+                showSuccess(student.nama, timeStr);
+                updateMiniStats();
+                updateDashboard();
+            }).catch(err => {
+                console.error(err);
+                showError("DB ERROR", "Cek Koneksi!");
+            }).finally(() => {
+                setTimeout(() => { isProcessing = false; }, 3000);
+            });
+        }
+
+        function updateMiniStats() {
+            const today = new Date().toLocaleDateString('id-ID');
+            const daily = attendanceData.filter(e => e.date === today);
+            document.getElementById('mini-hadir').innerText = daily.length;
+            document.getElementById('mini-telat').innerText = daily.filter(e => e.late).length;
         }
 
         function switchView(view) {
             const vScan = document.getElementById('view-scan');
             const vDash = document.getElementById('view-dashboard');
-            const bScan = document.getElementById('btn-nav-scan');
-            const bDash = document.getElementById('btn-nav-dash');
-
             if (view === 'scan') {
                 vScan.classList.remove('hidden');
                 vDash.classList.add('hidden');
-                bScan.className = "flex items-center gap-2 py-3 px-6 rounded-full bg-indigo-600 text-white transition-all shadow-lg";
-                bDash.className = "flex items-center gap-2 py-3 px-6 rounded-full text-slate-500 hover:text-indigo-400 transition-all";
             } else {
                 vScan.classList.add('hidden');
                 vDash.classList.remove('hidden');
-                bDash.className = "flex items-center gap-2 py-3 px-6 rounded-full bg-indigo-600 text-white transition-all shadow-lg";
-                bScan.className = "flex items-center gap-2 py-3 px-6 rounded-full text-slate-500 hover:text-indigo-400 transition-all";
                 updateDashboard();
             }
         }
 
-       async function initScanner() {
-    document.getElementById('start-layer').classList.add('hidden');
-    document.getElementById('scan-line-element').style.display = 'block';
-    
-    html5QrScanner = new Html5Qrcode("reader");
-    try {
-        await html5QrScanner.start(
-            { facingMode: "environment" }, 
-            { 
-                fps: 30, 
-                qrbox: { width: 400, height: 400 }, // DIPERLUAS: dari 250 ke 350
-                aspectRatio: 1.0 // TAMBAHAN: Biar fokus scannernya lebih stabil
-            }, 
-            onScanSuccess
-        );
-    } catch (err) {
-        alert("Kamera tidak ditemukan.");
-    }
-}
-
-        function onScanSuccess(decodedText) {
-    if (isProcessing) return;
-    const cleanId = decodedText.trim().replace(/^0+/, '');
-    const student = siswa.find(s => s.id.replace(/^0+/, '') === cleanId);
-
-    if (!student) return;
-
-    const now = new Date();
-    const isFriday = now.getDay() === 5;
-    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
-    const today = now.toLocaleDateString('id-ID');
-    const existing = attendanceData.find(e => e.id.replace(/^0+/, '') === cleanId && e.date === today);
-
-    const startExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-    const endExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-
-   // LOGIKA FILTER BARU
-if (timeStr < startExit) { 
-    // Mode Absen Pagi
-    if (timeStr > CONFIG.LATE_DEADLINE) {
-        // Mainkan suara peringatan
-        document.getElementById('snd-warning').play();
-        
-        // Tampilkan pesan di UI saja (tanpa alert pop-up)
-        // Kita pakai jam dari CONFIG biar kalau senin otomatis jadi 08:30
-        const batasJam = CONFIG.LATE_DEADLINE.substring(0, 5);
-        showError("ABSEN DITUTUP", `Batas Jam ${batasJam} sudah lewat!`);
-        
-        isProcessing = false; // Pastikan processing di-reset agar bisa scan kartu lain
-        return;
-    }
-    if (existing) { 
-        document.getElementById('snd-warning').play(); 
-        isProcessing = false;
-        return; 
-    }
-} else if (timeStr >= startExit && timeStr <= endExit) {
-    // Mode Absen Pulang
-    if (existing && existing.pukul_pulang) { 
-        document.getElementById('snd-warning').play(); 
-        isProcessing = false;
-        return; 
-    }
-} else {
-    // Di luar semua jadwal
-    document.getElementById('snd-warning').play();
-    showError("JADWAL KOSONG", "Belum waktunya absen!");
-    isProcessing = false;
-    return;
-}
-
-    isProcessing = true;
-    processAttendance(student, timeStr, today, existing);
-}
-
-      function processAttendance(student, timeStr, today, existing) {
-    const d = new Date();
-    const isFriday = d.getDay() === 5;
-    const isMonday = d.getDay() === 1; // Tambahkan ini buat cek hari Senin
-
-    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-    const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-    
-    const isExit = timeStr >= sExit && timeStr <= eExit;
-
-    const attendanceRef = db.ref('absensi/' + today + '/' + student.id);
-    
-    const dataToUpdate = {
-        name: student.nama,
-        class: student.kelas,
-        date: today,
-        timestamp: Date.now()
-    };
-
-    if (isExit) {
-        dataToUpdate.pukul_pulang = timeStr;
-    } else {
-        dataToUpdate.time = timeStr;
-        
-        // Logika Late Baru: 
-        // Kalau Senin bandingkan ke 08:20 (LATE_TIME hasil isMonday ? "08:20:00" : "07:35:00")
-        dataToUpdate.late = timeStr > CONFIG.LATE_TIME;
-    }
-
-    attendanceRef.update(dataToUpdate).then(() => {
-        document.getElementById('snd-success').play();
-        showSuccess(student.nama, timeStr);
-    }).finally(() => {
-        setTimeout(() => { isProcessing = false; }, 2000);
-    });
-}
-
-        function updateMiniStats() {
-            const today = new Date().toLocaleDateString('id-ID');
-            const daily = attendanceData.filter(e => e.date === today);
-            document.getElementById('mini-hadir').innerText = daily.filter(e => !e.late).length;
-            document.getElementById('mini-telat').innerText = daily.filter(e => e.late).length;
-        }
-
         function updateDashboard() {
-    const now = new Date();
-    const todayStr = now.toLocaleDateString('id-ID');
-    
-    // Pastikan currentFilter ada nilainya, default ke daily kalau kosong
-    const filter = typeof currentFilter !== 'undefined' ? currentFilter : 'daily';
-    
-    let filtered = [];
-    if (filter === 'daily') {
-        filtered = attendanceData.filter(e => e.date === todayStr);
-    } else if (filter === 'weekly') {
-        const oneWeekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
-        filtered = attendanceData.filter(e => e.timestamp >= oneWeekAgo);
-    } else {
-        const oneMonthAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
-        filtered = attendanceData.filter(e => e.timestamp >= oneMonthAgo);
-    }
+            const now = new Date();
+            const todayStr = now.toLocaleDateString('id-ID');
+            const container = document.getElementById('full-list');
+            if (!container) return;
 
-    // Update Ringkasan Angka
-    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = filtered.length;
-    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = filtered.filter(e => e.late).length;
-
-    const absentContainer = document.getElementById('absent-list');
-    if (absentContainer) {
-        if (filter === 'daily') {
-            const presentIds = filtered.map(e => e.id.toString().replace(/^0+/, ''));
-            const missing = siswa.filter(s => !presentIds.includes(s.id.toString().replace(/^0+/, '')));
+            const filtered = attendanceData.filter(e => e.date === todayStr);
             
-            absentContainer.className = "grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2";
-            absentContainer.innerHTML = missing.map(info => `
-                <div class="flex items-center justify-between p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+            container.innerHTML = filtered.map(s => `
+                <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${s.late ? 'border-red-500 bg-red-500/5' : 'border-emerald-500 bg-emerald-500/5'} mb-2">
                     <div>
-                        <span class="text-[9px] font-black text-slate-300 uppercase block">${info.nama}</span>
-                        <span class="text-[7px] font-bold text-slate-500 uppercase">${info.kelas}</span>
+                        <p class="text-[9px] font-black text-white uppercase">${s.name}</p>
+                        <p class="text-[7px] text-slate-500 uppercase">${s.class} • ${s.date}</p>
+                        <p class="text-[7px] text-indigo-400 font-bold">M: ${s.time || '--'} | P: ${s.pukul_pulang || '--'}</p>
                     </div>
-                    <span class="text-[7px] font-black text-red-500/60 uppercase">Mangkir</span>
-                </div>
-            `).join('') || '<p class="text-center text-[10px] text-slate-500 py-4 italic">Semua hadir hari ini.</p>';
-            
-            if(document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = missing.length;
-        } else {
-            absentContainer.className = "text-slate-500 text-[10px] italic text-center py-4";
-            absentContainer.innerHTML = "Detail 'Belum Absen' hanya untuk laporan harian.";
-            if(document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = "-";
-        }
-    }
-
-    // Update Daftar Utama (Full List)
-    const fullListContainer = document.getElementById('full-list');
-    if (fullListContainer) {
-        fullListContainer.innerHTML = filtered.map(s => `
-            <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${s.late ? 'border-red-500 bg-red-500/5' : 'border-emerald-500 bg-emerald-500/5'} mb-2">
-                <div>
-                    <p class="text-[9px] font-black text-white uppercase">${s.name}</p>
-                    <p class="text-[7px] font-bold text-slate-500 uppercase">${s.class} � ${s.date}</p>
-                    <p class="text-[7px] text-indigo-400">Pulang: ${s.pukul_pulang || '--'}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[9px] font-black text-white tabular-nums">${s.time}</p>
-                    <span class="text-[6px] font-black uppercase ${s.late ? 'text-red-500' : 'text-emerald-500'}">${s.late ? 'Terlambat' : 'Hadir'}</span>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-        
-
-        function renderRecent() {
-            const today = new Date().toLocaleDateString('id-ID');
-            const daily = attendanceData.filter(e => e.date === today);
-            const container = document.getElementById('recent-list');
-            
-            if (daily.length === 0) return;
-            container.innerHTML = daily.slice(0, 3).map(s => `
-                <div class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 animate-in slide-in-from-left duration-300">
-                    <div class="w-8 h-8 rounded-full ${s.late ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'} flex items-center justify-center shrink-0">
-                        <i data-lucide="${s.late ? 'frown' : 'user-check'}" class="w-4 h-4"></i>
+                    <div class="text-right">
+                        <span class="text-[6px] font-black uppercase px-2 py-1 rounded-full ${s.late ? 'bg-red-500/20 text-red-500' : 'bg-emerald-500/20 text-emerald-400'}">
+                            ${s.late ? 'Terlambat' : 'Hadir'}
+                        </span>
                     </div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-[10px] font-black text-white uppercase truncate">${s.name}</p>
-                        <p class="text-[8px] font-bold text-slate-500 uppercase">${s.class}</p>
-                    </div>
-                    <p class="text-[10px] font-black text-slate-400 tabular-nums">${s.time}</p>
                 </div>
             `).join('');
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        function downloadExcel() {
-    // TAMBAHKAN BARIS INI
-    const today = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-    
-    const data = attendanceData.map(i => ({ 
-        "Tanggal": i.date, 
-        "Masuk": i.time,
-        "Pulang": i.pukul_pulang || "--", 
-        "Nama": i.name, 
-        "Kelas": i.class, 
-        "Status": i.late ? "TERLAMBAT" : "TEPAT WAKTU" 
-    }));
-    
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan");
-    
-    // Gunakan variabel today yang sudah dibuat di atas
-    XLSX.writeFile(wb, `Laporan_Absensi_DarulAbror_${today}.xlsx`);
-}
-
-      window.onload = function() {
-    // Fungsi update teks
-    const masukElem = document.getElementById('jam-masuk-text');
-    const pulangElem = document.getElementById('jam-pulang-text');
-
-    if (masukElem) {
-        masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
-    }
-    
-    if (pulangElem) {
-        const isFriday = new Date().getDay() === 5;
-        const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-        const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-        pulangElem.innerText = `PULANG: ${sExit.substring(0,5)} - ${eExit.substring(0,5)}`;
-    }
-    
-    console.log("Jadwal Berhasil Diupdate!"); // Buat ngecek di console nanti
+        window.onload = function() {
+            updateMiniStats();
+            const masukElem = document.getElementById('jam-masuk-text');
+            if (masukElem) masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
+            console.log("Sistem Darul Abror Siap, Jon!");
             lucide.createIcons();
         };
     </script>
