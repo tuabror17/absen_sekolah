@@ -114,7 +114,7 @@
                     <i data-lucide="clock" class="w-4 h-4 text-indigo-400"></i>
                     <div>
                         <p class="text-[9px] font-bold text-slate-300 uppercase tracking-wider">
-    Jam Masuk: <span id="jam-masuk-text" class="text-white">07:20 - 07:35</span>
+    Jam Masuk: <span id="jam-masuk-text" class="text-white">07:10 - 07:35</span>
 </p>
 <p id="jam-pulang-text" class="text-[8px] text-red-400 font-bold uppercase tracking-tight">
     Pulang: 14:30 - 15:30
@@ -188,10 +188,10 @@
                 <span class="text-[10px] font-bold">HARIAN</span>
             </button>
             
-            <button onclick="downloadExcel('rekap')" title="Download Rekap" class="p-2 glass rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-2">
-                <i data-lucide="users" class="w-5 h-5"></i>
-                <span class="text-[10px] font-bold">REKAP</span>
-            </button>
+           <button onclick="downloadRekap()" title="Download Rekap" class="p-2 glass rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-2">
+    <i data-lucide="users" class="w-5 h-5"></i>
+    <span class="text-[10px] font-bold">REKAP</span>
+</button>
 
             <button onclick="clearList()" class="p-2 glass rounded-xl text-red-400 hover:bg-red-500/10 transition-colors ml-2">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
@@ -258,8 +258,8 @@
     <audio id="snd-warning" src="https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3" preload="auto"></audio>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
-    import { getDatabase, ref, push, set, update } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, push, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = { 
         apiKey: "AIzaSyAqfFiZ4uPamuT56tZC84X2TQn9unJFavQ", 
@@ -271,39 +271,51 @@
         appId: "1:203690176150:web:d5921062da76c141f5dcb7"
     };
 
-    // Ekspos ke window agar bisa diakses script lain
     const app = initializeApp(firebaseConfig);
-    window.db = getDatabase(app); 
-    window.fbRef = ref;
-    window.fbPush = push;
-    window.fbSet = set;
-    window.fbUpdate = update;
+window.db = getDatabase(app); 
+window.fbRef = ref;
+window.fbPush = push;
+window.fbSet = set;
+window.fbUpdate = update;
+window.fbOnValue = onValue; // <--- TAMBAHIN BARIS INI WAJIB!
 
-    window.sendToFirebase = function(data, isUpdate = false, fbKey = null) {
+    // Fungsi kirim data yang lebih rapi (Pakai ID Siswa sebagai Key agar gak dobel)
+    window.sendToFirebase = function(data) {
         const datePath = data.date.replace(/\//g, '-');
-        if (isUpdate && fbKey) {
-            window.fbUpdate(window.fbRef(window.db, `absensi/${datePath}/${fbKey}`), data);
-        } else {
-            const newRef = window.fbPush(window.fbRef(window.db, `absensi/${datePath}`));
-            data.fbKey = newRef.key;
-            window.fbSet(newRef, data);
-            return newRef.key;
-        }
+        // Kita pakai ID siswa sebagai key di database biar Laptop & HP datanya nyambung
+        const studentRef = window.fbRef(window.db, `absensi/${datePath}/${data.id}`);
+        
+        window.fbUpdate(studentRef, data).then(() => {
+            console.log("Cloud Updated!");
+        }).catch((e) => console.error("Cloud Error:", e));
     };
+
+    console.log("Firebase Engine Ready,!");
 </script>
-<script>
+ <script>
+
 const isMonday = new Date().getDay() === 1;
 
+
 const CONFIG = {
-    START_TIME: isMonday ? "06:50:00" : "07:20:00",
+
+    START_TIME: isMonday ? "06:50:00" : "07:10:00",
+
     LATE_TIME: isMonday ? "07:50:00" : "07:35:00",
+
     LATE_DEADLINE: isMonday ? "07:55:00" : "07:40:00",
+
     EXIT_START: "14:30:00",
+
     EXIT_END: "15:30:00",
+
     FRIDAY_EXIT_START: "11:00:00",
+
     FRIDAY_EXIT_END: "11:30:00",
+
     STORAGE_KEY: 'darulAbror_v12'
-};
+
+}; 
 
 // --- TARUH DI SINI JON ---
 function updateScheduleUI() {
@@ -371,450 +383,756 @@ function updateScheduleUI() {
     { id: "0078123238", nama: "ZALFA LINGGAR UTTAMI", kelas: "12" },
 
     // --- DATA SMP (214 Siswa) ---
-    { id: "1104868777", nama: "AI SYIFA RIZKIYAH", kelas: "7" },
-    { id: "1110008556", nama: "ANDHIKA ZAFRAN RADITYA", kelas: "7" },
-    { id: "1203589888", nama: "ANUGERAH CAHAYA AKBAR", kelas: "7" },
-    { id: "1104337222", nama: "ARIEF FATHUL MUBAROK", kelas: "7" },
-    { id: "1207135000", nama: "AULIA RATU AQILA", kelas: "7" },
-    { id: "1104337223", nama: "DAVA RAMADHAN", kelas: "7" },
-    { id: "1104337224", nama: "DAVINA OKTAVIA", kelas: "7" },
-    { id: "1104337225", nama: "DAVINE OKTAVIA", kelas: "7" },
-    { id: "1104337226", nama: "FACHRI ARDIANSYAH", kelas: "7" },
-    { id: "1206109333", nama: "FATHAN NUR HASAN", kelas: "7" },
-    { id: "1104337228", nama: "KEYSHA ADYSTY", kelas: "7" },
-    { id: "1104337229", nama: "LAURA AZZAHRA", kelas: "7" },
-    { id: "1104337230", nama: "M ELANG GUMILANG", kelas: "7" },
-    { id: "1104337231", nama: "M ZAINAL ARIPIN", kelas: "7" },
-    { id: "1104337232", nama: "MUHAMAD NAZIL JIDAN", kelas: "7" },
-    { id: "1110008557", nama: "MUHAMMAD ADRIAN RAMDANI", kelas: "7" },
-    { id: "1110008558", nama: "NENG FITRI", kelas: "7" },
-    { id: "1104337235", nama: "PUTRI AYUDIA", kelas: "7" },
-    { id: "1104337236", nama: "RESTI NOVIANTI", kelas: "7" },
-    { id: "1104337237", nama: "RIZKI RAMADHAN", kelas: "7" },
-    { id: "1104337238", nama: "SITI AISYAH", kelas: "7" },
-    { id: "1110008559", nama: "VALENTINO ADRIAN RAMDANI", kelas: "7" },
-    { id: "1104337240", nama: "WAFA SITI MASFUFAH", kelas: "7" },
-    { id: "1104337241", nama: "YULIA PUTRI RAMADHANI", kelas: "7" },
-    { id: "1110008560", nama: "YUSUF AL GHOZALI", kelas: "7" },
-    { id: "1104337243", nama: "AILA FAZIRA ARWEN", kelas: "7" },
-    { id: "1110008561", nama: "ALBY MUHAMMAD ABIMANYU", kelas: "7" },
-    { id: "1104337245", nama: "ALYA KHANZA KIRANI", kelas: "7" },
-    { id: "1104337246", nama: "AQIELA HAFIZA PUTRI", kelas: "7" },
-    { id: "1104337247", nama: "ASTI MAULIDIA", kelas: "7" },
-    { id: "1104337248", nama: "AZKIA KHOERUNISA", kelas: "7" },
-    { id: "1104337249", nama: "DENY MARSHEL", kelas: "7" },
-    { id: "1110008562", nama: "DERRY JULIAN PRATAMA", kelas: "7" },
-    { id: "1110008563", nama: "FADLAN SYABAN", kelas: "7" },
-    { id: "1104337252", nama: "FAREL FAHREZI", kelas: "7" },
-    { id: "1104337253", nama: "FAUZAN NUR RAHMAT", kelas: "7" },
-    { id: "1110008564", nama: "HAYFA NABILA", kelas: "7" },
-    { id: "1104337255", nama: "INDRA LESMANA", kelas: "7" },
-    { id: "1104337256", nama: "INTAN AMELIA RAMADHANI", kelas: "7" },
-    { id: "1104337257", nama: "KIRANI AMALIA PUTRI", kelas: "7" },
-    { id: "1104337258", nama: "M ARYA RAMADHAN", kelas: "7" },
-    { id: "1104337259", nama: "M NAZHIF FAUZI", kelas: "7" },
-    { id: "1104337260", nama: "MOCHAMAD ARJUN DARMANSYAH", kelas: "7" },
-    { id: "1104337261", nama: "MUHAMAD ZAYN", kelas: "7" },
-    { id: "1104337262", nama: "NIDA EL HASNA", kelas: "7" },
-    { id: "1104337263", nama: "RESTI NUR AZIZAH", kelas: "7" },
-    { id: "1104337264", nama: "REVALINA NUR OKTAVIA", kelas: "7" },
-    { id: "1104337265", nama: "SHAFIRA CAHAYA PUTRI", kelas: "7" },
-    { id: "1104337266", nama: "WILDAN AGUSTIAN", kelas: "7" },
-    { id: "1104337267", nama: "YUDHISTIRA BAGUS GUMELAR", kelas: "7" },
-    { id: "1104337268", nama: "ZASKIA NUR RACHMAWATI", kelas: "7" },
-    { id: "1110008565", nama: "ADRIAN SATYA PRAMUDYA", kelas: "7" },
-    { id: "1110008566", nama: "AHMAD FAWWAZ", kelas: "7" },
-    { id: "1104337271", nama: "ANDHIKA BAGUS SETIAWAN", kelas: "7" },
-    { id: "1104337272", nama: "ANNISA AYU LESTARI", kelas: "7" },
-    { id: "1110008567", nama: "ARKAN ABID SAPUTRA", kelas: "7" },
-    { id: "1104337274", nama: "ASYFA NUR HALIZA", kelas: "7" },
-    { id: "1104337275", nama: "DAVA PRASETYA", kelas: "7" },
-    { id: "1104337276", nama: "DENI RAMDANI", kelas: "7" },
-    { id: "1104337277", nama: "ELVARETTA KHAIRUNISA", kelas: "7" },
-    { id: "1110008568", nama: "FAKHRY FAHREZI", kelas: "7" },
-    { id: "1110008569", nama: "FATHAN AL FARIZI", kelas: "7" },
-    { id: "1104337281", nama: "HAFIDZ NUR ILAHI", kelas: "7" },
-    { id: "1104337282", nama: "IDZNI NURHALIZZA", kelas: "7" },
-    { id: "1104337283", nama: "ISMAIL", kelas: "7" },
-    { id: "1104337284", nama: "KEISHA NUR AFNI", kelas: "7" },
-    { id: "1104337285", nama: "M ILHAM NUR AZIZ", kelas: "7" },
-    { id: "1104337286", nama: "M REHAN SAPUTRA", kelas: "7" },
-    { id: "1104337287", nama: "MOCHAMAD RIDWAN", kelas: "7" },
-    { id: "1104337288", nama: "MUHAMAD RIZKY", kelas: "7" },
-    { id: "1104337289", nama: "NUR ALIMAH", kelas: "7" },
-    { id: "1104337290", nama: "RENI NUR SYA'ADAH", kelas: "7" },
-    { id: "1104337291", nama: "REVAN ADRIAN", kelas: "7" },
-    { id: "1110008570", nama: "SITI NUR JANAH", kelas: "7" },
-    { id: "1110008571", nama: "SITI NURJANAH", kelas: "7" },
-    { id: "1104337294", nama: "YUSUF MAULANA", kelas: "7" },
-    { id: "1110008572", nama: "ZAKIA RAMADHANI", kelas: "7" },
-    { id: "1110008573", nama: "ALYA NURHALIZA", kelas: "7" },
-    { id: "1110008574", nama: "ANDINI PUTRI", kelas: "7" },
-    { id: "1110008575", nama: "ARKAAN ABID SAPUTRA", kelas: "7" },
-    { id: "1110008576", nama: "AULIA NUR AZIZAH", kelas: "7" },
-    { id: "1110008577", nama: "FAREL ARDIANSYAH", kelas: "7" },
-    { id: "1110008578", nama: "SITI NUR AZIZAH", kelas: "7" },
-    { id: "1004128000", nama: "AHMAD SYAIFUL ISLAM", kelas: "8" },
-    { id: "1004337244", nama: "AL-FAKHRI ADHA", kelas: "8" },
-    { id: "1004337245", nama: "ALINDA ANGGRAENI", kelas: "8" },
-    { id: "1004337246", nama: "ANNISA NUR SA'ADAH", kelas: "8" },
-    { id: "1004337247", nama: "AYU FITRIANI", kelas: "8" },
-    { id: "1011124111", nama: "AZRIEL SYAHBANA", kelas: "8" },
-    { id: "1004337249", nama: "CANDRA SEPTIAN", kelas: "8" },
-    { id: "1011124112", nama: "FATHIR AZKA DINATA", kelas: "8" },
-    { id: "1004337251", nama: "ILHAM HIDAYAT", kelas: "8" },
-    { id: "1004337252", nama: "M ADITYA MAULANA", kelas: "8" },
-    { id: "1004337253", nama: "M RIDWAN MAULANA", kelas: "8" },
-    { id: "1004337254", nama: "MAELANI PUTRI", kelas: "8" },
-    { id: "1004337255", nama: "MUHAMMAD RAFI", kelas: "8" },
-    { id: "1004337256", nama: "NAILA ZALFA ANINDYA", kelas: "8" },
-    { id: "1004337257", nama: "NAZILA RAHMAWATI", kelas: "8" },
-    { id: "1004337258", nama: "RAFIKA HUSAIN", kelas: "8" },
-    { id: "1004337259", nama: "SITI SALSABILA", kelas: "8" },
-    { id: "3104337260", nama: "SOFIYA SHAFWATUNNISA", kelas: "8" },
-    { id: "1004337261", nama: "ADRIAN MAULANA", kelas: "8" },
-    { id: "1004337262", nama: "AFDAL RAMADHAN", kelas: "8" },
-    { id: "1004337263", nama: "AILA RIZKI", kelas: "8" },
-    { id: "1004337264", nama: "ALMIRA RAHMAWATI", kelas: "8" },
-    { id: "1004337265", nama: "ARDA ADITYA", kelas: "8" },
-    { id: "1004337266", nama: "ASYILA NUR AZIZAH", kelas: "8" },
-    { id: "1004337267", nama: "AZHURA NUR FITRI", kelas: "8" },
-    { id: "1004337268", nama: "DANDI RAMDANI", kelas: "8" },
-    { id: "1004337269", nama: "DELLA NURHALIZA", kelas: "8" },
-    { id: "1004337270", nama: "FADIL MAULANA", kelas: "8" },
-    { id: "1004337271", nama: "FAREL RAMADHAN", kelas: "8" },
-    { id: "1004337272", nama: "HASNA NUR AZIZAH", kelas: "8" },
-    { id: "1004337273", nama: "ILHAM RAMDANI", kelas: "8" },
-    { id: "1004337274", nama: "INDRIANI", kelas: "8" },
-    { id: "1004337275", nama: "KEYLA NURHALIZA", kelas: "8" },
-    { id: "1004337276", nama: "M ARYA SAPUTRA", kelas: "8" },
-    { id: "1004337277", nama: "M RIDWAN SAPUTRA", kelas: "8" },
-    { id: "1004337278", nama: "NABILA RAHMAWATI", kelas: "8" },
-    { id: "1004337279", nama: "NADIA NUR AZIZAH", kelas: "8" },
-    { id: "1004337280", nama: "PUTRI NURHALIZA", kelas: "8" },
-    { id: "1004337281", nama: "RENI RAHMAWATI", kelas: "8" },
-    { id: "1004337282", nama: "RIZKI MAULANA", kelas: "8" },
-    { id: "1004337283", nama: "SITI NUR AZIZAH", kelas: "8" },
-    { id: "1004337284", nama: "WILDAN MAULANA", kelas: "8" },
-    { id: "1004337285", nama: "YULIA RAHMAWATI", kelas: "8" },
-    { id: "1004337286", nama: "ADITYA SAPUTRA", kelas: "8" },
-    { id: "1004337287", nama: "AILA NUR AZIZAH", kelas: "8" },
-    { id: "1004337288", nama: "ALYA RAHMAWATI", kelas: "8" },
-    { id: "1004337289", nama: "ARDI RAMADHAN", kelas: "8" },
-    { id: "1004337290", nama: "ASYIFA NURHALIZA", kelas: "8" },
-    { id: "1004337291", nama: "AZKIA RAHMAWATI", kelas: "8" },
-    { id: "1004337292", nama: "DINA NUR AZIZAH", kelas: "8" },
-    { id: "1004337293", nama: "FADLAN MAULANA", kelas: "8" },
-    { id: "1004337294", nama: "FAREL SAPUTRA", kelas: "8" },
-    { id: "1004337295", nama: "HASNA RAHMAWATI", kelas: "8" },
-    { id: "1004337296", nama: "ILHAM SAPUTRA", kelas: "8" },
-    { id: "1004337297", nama: "INDRI RAHMAWATI", kelas: "8" },
-    { id: "1004337298", nama: "KEYLA RAHMAWATI", kelas: "8" },
-    { id: "1004337299", nama: "M ARYA RAMADHAN", kelas: "8" },
-    { id: "1004337300", nama: "M RIDWAN RAMADHAN", kelas: "8" },
-    { id: "1004337301", nama: "NABILA NUR AZIZAH", kelas: "8" },
-    { id: "1004337302", nama: "NADIA RAHMAWATI", kelas: "8" },
-    { id: "1004337303", nama: "PUTRI RAHMAWATI", kelas: "8" },
-    { id: "1004337304", nama: "RENI NUR AZIZAH", kelas: "8" },
-    { id: "1004337305", nama: "RIZKI SAPUTRA", kelas: "8" },
-    { id: "1004337306", nama: "SITI RAHMAWATI", kelas: "8" },
-    { id: "1004337307", nama: "WILDAN SAPUTRA", kelas: "8" },
-    { id: "1004337308", nama: "YULIA NUR AZIZAH", kelas: "8" },
-    { id: "1004337309", nama: "ADITYA RAMADHAN", kelas: "8" },
-    { id: "1004337310", nama: "AILA RAHMAWATI", kelas: "8" },
-    { id: "1004337311", nama: "ALYA NUR AZIZAH", kelas: "8" },
-    { id: "1004337312", nama: "ARDI SAPUTRA", kelas: "8" },
-    { id: "1004337313", nama: "ASYIFA RAHMAWATI", kelas: "8" },
-    { id: "1004337314", nama: "AZKIA NUR AZIZAH", kelas: "8" },
-    { id: "1004337315", nama: "DINA RAHMAWATI", kelas: "8" },
-    { id: "1004337316", nama: "FADLAN SAPUTRA", kelas: "8" },
-    { id: "1004337317", nama: "FAREL RAMADHAN", kelas: "8" },
-    { id: "1004337318", nama: "HASNA NUR AZIZAH", kelas: "8" },
-    { id: "3101565444", nama: "ACHMAD DAFA ALBARA", kelas: "9" },
-    { id: "0094337262", nama: "ANDIKA SURYA KENCANA", kelas: "9" },
-    { id: "3093856222", nama: "CARISSA MAULIDA", kelas: "9" },
-    { id: "0094337264", nama: "FAHIRA NUR ANGGRAENI", kelas: "9" },
-    { id: "0094337265", nama: "GHAITSA ZAHIRA SYOFA", kelas: "9" },
-    { id: "3103445111", nama: "IRWAN FAHREZI", kelas: "9" },
-    { id: "0094337267", nama: "M REHAN AGUSTIN", kelas: "9" },
-    { id: "3103445112", nama: "NABILA NAZWA", kelas: "9" },
-    { id: "0104277555", nama: "RAKA RAMDANI", kelas: "9" },
-    { id: "0104277556", nama: "RAKI RAMDANI", kelas: "9" },
-    { id: "0094337268", nama: "ADRIAN RAMADHAN", kelas: "9" },
-    { id: "0094337269", nama: "AILA NUR AZIZAH", kelas: "9" },
-    { id: "0094337270", nama: "ALYA RAHMAWATI", kelas: "9" },
-    { id: "0094337271", nama: "ARDI RAMADHAN", kelas: "9" },
-    { id: "0094337272", nama: "ASYIFA NURHALIZA", kelas: "9" },
-    { id: "0094337273", nama: "AZKIA RAHMAWATI", kelas: "9" },
-    { id: "0094337274", nama: "DINA NUR AZIZAH", kelas: "9" },
-    { id: "0094337275", nama: "FADLAN MAULANA", kelas: "9" },
-    { id: "0094337276", nama: "FAREL SAPUTRA", kelas: "9" },
-    { id: "0094337277", nama: "HASNA RAHMAWATI", kelas: "9" },
-    { id: "0094337278", nama: "ILHAM SAPUTRA", kelas: "9" },
-    { id: "0094337279", nama: "INDRI RAHMAWATI", kelas: "9" },
-    { id: "0094337280", nama: "KEYLA RAHMAWATI", kelas: "9" },
-    { id: "0094337281", nama: "M ARYA RAMADHAN", kelas: "9" },
-    { id: "0094337282", nama: "M RIDWAN RAMADHAN", kelas: "9" },
-    { id: "0094337283", nama: "NABILA NUR AZIZAH", kelas: "9" },
-    { id: "0094337284", nama: "NADIA RAHMAWATI", kelas: "9" },
-    { id: "0094337285", nama: "PUTRI RAHMAWATI", kelas: "9" },
-    { id: "0094337286", nama: "RENI NUR AZIZAH", kelas: "9" },
-    { id: "0094337287", nama: "RIZKI SAPUTRA", kelas: "9" },
-    { id: "0094337288", nama: "SITI RAHMAWATI", kelas: "9" },
-    { id: "0094337289", nama: "WILDAN SAPUTRA", kelas: "9" },
-    { id: "0094337290", nama: "YULIA NUR AZIZAH", kelas: "9" },
-    { id: "0094337291", nama: "ADITYA RAMADHAN", kelas: "9" },
-    { id: "0094337292", nama: "AILA RAHMAWATI", kelas: "9" },
-    { id: "0094337293", nama: "ALYA NUR AZIZAH", kelas: "9" },
-    { id: "0094337294", nama: "ARDI SAPUTRA", kelas: "9" },
-    { id: "0094337295", nama: "ASYIFA RAHMAWATI", kelas: "9" },
-    { id: "0094337296", nama: "AZKIA NUR AZIZAH", kelas: "9" },
-    { id: "0094337297", nama: "DINA RAHMAWATI", kelas: "9" },
-    { id: "0094337298", nama: "FADLAN SAPUTRA", kelas: "9" },
-    { id: "0094337299", nama: "FAREL RAMADHAN", kelas: "9" },
-    { id: "0094337300", nama: "HASNA NUR AZIZAH", kelas: "9" },
-    { id: "0094337301", nama: "ILHAM MAULANA", kelas: "9" },
-    { id: "0094337302", nama: "INDRI NUR AZIZAH", kelas: "9" },
-    { id: "0094337303", nama: "KEYLA NUR AZIZAH", kelas: "9" },
-    { id: "0094337304", nama: "M ARYA SAPUTRA", kelas: "9" },
-    { id: "0094337305", nama: "M RIDWAN SAPUTRA", kelas: "9" },
-    { id: "0094337306", nama: "NABILA RAHMAWATI", kelas: "9" },
-    { id: "0094337307", nama: "NADIA NUR AZIZAH", kelas: "9" },
-    { id: "0094337308", nama: "PUTRI NURHALIZA", kelas: "9" },
-    { id: "0094337309", nama: "RENI RAHMAWATI", kelas: "9" },
-    { id: "0094337310", nama: "RIZKI MAULANA", kelas: "9" },
-    { id: "0094337311", nama: "SITI NUR AZIZAH", kelas: "9" },
-    { id: "0094337312", nama: "WILDAN MAULANA", kelas: "9" },
-    { id: "0094337313", nama: "YULIA RAHMAWATI", kelas: "9" },
-    { id: "0094337314", nama: "ADITYA MAULANA", kelas: "9" },
-    { id: "0094337315", nama: "AILA RIZKI", kelas: "9" },
-    { id: "0094337316", nama: "ALMIRA RAHMAWATI", kelas: "9" },
-    { id: "0094337317", nama: "ARDA ADITYA", kelas: "9" },
-    { id: "0094337318", nama: "ASYILA NUR AZIZAH", kelas: "9" },
-    { id: "0094337319", nama: "AZHURA NUR FITRI", kelas: "9" },
-    { id: "0094337320", nama: "DANDI RAMDANI", kelas: "9" },
-    { id: "0094337321", nama: "DELLA NURHALIZA", kelas: "9" }
+    { id: "3127465766", nama: "AFKHAR MUHAMAD FIRDAUS NUGRAHA", kelas: "7A" },
+    { id: "0133122809", nama: "AHMAD MUKHLIS DZAKI SOPIAN", kelas: "7A" },
+    { id: "3135691911", nama: "AKBAR CHAEDAR AL BAIHAQI", kelas: "7A" },
+    { id: "0122700074", nama: "ARDIGA DEZAR NOEGRAHA", kelas: "7A" },
+    { id: "0139230548", nama: "AZZAM RADITYA RUHIYATNA", kelas: "7A" },
+    { id: "3129626322", nama: "DZAKY RAFIF MAULANA", kelas: "7A" },
+    { id: "3128108675", nama: "FAIZAL WILDANSAH", kelas: "7A" },
+    { id: "0137354180", nama: "FAQIH AL FATIH USMAN", kelas: "7A" },
+    { id: "3123211221", nama: "FAUZAN RAFIIANDRA", kelas: "7A" },
+    { id: "0128510991", nama: "FHAZA AHSHANUL MUTTAQIN", kelas: "7A" },
+    { id: "0122183078", nama: "FIKRI ABDULLAH MUTTAQIN", kelas: "7A" },
+    { id: "0127963314", nama: "HADI NUR RAHARJA", kelas: "7A" },
+    { id: "0127779202", nama: "JAMALUDIN", kelas: "7A" },
+    { id: "0134934068", nama: "M. ATTARIZ ZAHRAN CALIEF", kelas: "7A" },
+    { id: "0134793628", nama: "MAHARDIKA RAFA PUTRA SUNJAYA", kelas: "7A" },
+    { id: "3133196637", nama: "MARCELLO SETIAWAN", kelas: "7A" },
+    { id: "0133618451", nama: "MU'ADZ AL FATIH", kelas: "7A" },
+    { id: "0133749716", nama: "MUHAMAD AZKA ALGHIFARI", kelas: "7A" },
+    { id: "0134062831", nama: "MUHAMAD FADHIL AL FATIH", kelas: "7A" },
+    { id: "3125217992", nama: "MUHAMMAD ABIDZAR ADITYA", kelas: "7A" },
+    { id: "0139943486", nama: "MUHAMMAD AL FATIH", kelas: "7A" },
+    { id: "3127599026", nama: "MUHAMMAD ARYA PRADITYA", kelas: "7A" },
+    { id: "0133758362", nama: "MUHAMMAD ASYRAF", kelas: "7A" },
+    { id: "0136652615", nama: "MUHAMMAD FADHEL RAHMAN ALGHAZALI", kelas: "7A" },
+    { id: "3129188832", nama: "MUHAMMAD HABIBIE AN NAFI'I", kelas: "7A" },
+    { id: "3121528655", nama: "MUHAMMAD IRFAN NUGRAHA", kelas: "7A" },
+    { id: "3136894541", nama: "MUHAMMAD NAFIS AZ-ZAHIR", kelas: "7A" },
+    { id: "0133379204", nama: "MUHAMMAD RAYYAN AL-GHAZI", kelas: "7A" },
+    { id: "0132338165", nama: "MUMTAZ HASBI ASY SYIDIQI", kelas: "7A" },
+    { id: "3136976863", nama: "NASHRULLAH AL FAJR", kelas: "7A" },
+    { id: "0128760081", nama: "RAKA MAULANA AR RASYID", kelas: "7A" },
+    { id: "3129668383", nama: "REVAL MARDIANSYAH", kelas: "7A" },
+    { id: "3128911048", nama: "SAYYID AQIL AL MUUNA", kelas: "7A" },
+    { id: "3138379471", nama: "SULTAN AL FARABI", kelas: "7A" },
+    { id: "3121345381", nama: "YAFI DZAKWAN MAULANA", kelas: "7A" },
+    { id: "3123849132", nama: "ZIDNY ILMAN NAVIAN", kelas: "7A" },
+    { id: "0123512214", nama: "ZIKRI MAULANA", kelas: "7A" },
+    { id: "3129124231", nama: "ABDAN SYAKURA", kelas: "7B" },
+    { id: "0137593256", nama: "ABDULLAH ARFA KHAIRI", kelas: "7B" },
+    { id: "3138859738", nama: "AHMAD SYAKIR AL-FATHAN", kelas: "7B" },
+    { id: "0134839886", nama: "AKBAR MAULANA SAPUTRA", kelas: "7B" },
+    { id: "3127815335", nama: "AL-HAKIM ZIYAN ATTAQI", kelas: "7B" },
+    { id: "0124317808", nama: "DAFTA ALFATHA", kelas: "7B" },
+    { id: "0134114406", nama: "EMIR AZKA MAULANA", kelas: "7B" },
+    { id: "3136329731", nama: "ERLAN MUHAMMAD FATHIR", kelas: "7B" },
+    { id: "0133496739", nama: "FADHIL JALU SATRIAJI", kelas: "7B" },
+    { id: "0131495907", nama: "FAJAR MAULANA", kelas: "7B" },
+    { id: "0134015694", nama: "FARIS ADRIAN SYAH", kelas: "7B" },
+    { id: "0136279155", nama: "FAZLI GHAISAN ALFATIH", kelas: "7B" },
+    { id: "3127827829", nama: "GHANI DZAKY AL-FATHAN", kelas: "7B" },
+    { id: "3135508811", nama: "HAMMAM ABDURRAZAQ", kelas: "7B" },
+    { id: "3137682914", nama: "HAZIM DARWIS AL-FARIQ", kelas: "7B" },
+    { id: "0135314777", nama: "IBRA FAQIH EL FATIH", kelas: "7B" },
+    { id: "0137689108", nama: "IBRAHIM AL KATIRI", kelas: "7B" },
+    { id: "0133036481", nama: "KENZIE AZKA FAEYZA", kelas: "7B" },
+    { id: "3129166617", nama: "M. AL-FATIH", kelas: "7B" },
+    { id: "3134637775", nama: "M. ARKAAN KHAFFA", kelas: "7B" },
+    { id: "3133177651", nama: "M. AZKA FARIZQI", kelas: "7B" },
+    { id: "3138865666", nama: "M. NABIL ZAHID AR-RASYID", kelas: "7B" },
+    { id: "3134673623", nama: "M. RIDHO AR-RAIHAN", kelas: "7B" },
+    { id: "3125211910", nama: "M. ZHAFRAN ALFATIH", kelas: "7B" },
+    { id: "0132338166", nama: "MUHAMMAD ALFATIH", kelas: "7B" },
+    { id: "3121544253", nama: "MUHAMMAD ALKHALIFI DZIKRI", kelas: "7B" },
+    { id: "3132148111", nama: "MUHAMMAD AQIL ASSIDIQI", kelas: "7B" },
+    { id: "0134731773", nama: "MUHAMMAD ASLAM", kelas: "7B" },
+    { id: "0138988351", nama: "MUHAMMAD ATHAR RAYYAN", kelas: "7B" },
+    { id: "3127599021", nama: "MUHAMMAD DZAKY", kelas: "7B" },
+    { id: "3131331551", nama: "MUHAMMAD FADLI AR-RASYID", kelas: "7B" },
+    { id: "3136274111", nama: "MUHAMMAD GHAISAN RAFIQI", kelas: "7B" },
+    { id: "0133431665", nama: "MUHAMMAD NIZAM ARFAN", kelas: "7B" },
+    { id: "3121345382", nama: "MUHAMMAD RAYYAN", kelas: "7B" },
+    { id: "3135541666", nama: "RAFA AZKA GHAISAN", kelas: "7B" },
+    { id: "3121213444", nama: "RAFFASYA ZAIDAN AFANDI", kelas: "7B" },
+    { id: "0136236665", nama: "RAFIF AHMAD KHAYRI", kelas: "7B" },
+    { id: "3129188831", nama: "SAYYID HAMMAM AL MUUNA", kelas: "7B" },
+    { id: "3123849133", nama: "YAFI DZAKWAN", kelas: "7B" },
+    { id: "3127331551", nama: "YAZID KHAIRUL AZZAM", kelas: "7B" },
+    { id: "3128911041", nama: "ZIDNY ILMAN", kelas: "7B" },
+    { id: "1104868777", nama: "AI SYIFA RIZKIYAH", kelas: "7C" },
+    { id: "1138459438", nama: "ALMIRA ALIKA PUTRI", kelas: "7C" },
+    { id: "1136329731", nama: "ALYA FAUZIAH", kelas: "7C" },
+    { id: "1123162771", nama: "ANDHITA NURHAYATI", kelas: "7C" },
+    { id: "1135401569", nama: "ANNISA NUR SHIDQIA", kelas: "7C" },
+    { id: "1134114406", nama: "ASHILA NUR AZIZAH", kelas: "7C" },
+    { id: "1123849132", nama: "ASKANA SAKHI AZKADINA", kelas: "7C" },
+    { id: "1134015694", nama: "ASYIFA NURAINI", kelas: "7C" },
+    { id: "1133379204", nama: "AUFA NURUL FADHILAH", kelas: "7C" },
+    { id: "1135314777", nama: "AZAHRA NURUL AZKIA", kelas: "7C" },
+    { id: "1124317808", nama: "AZKA NURUL AZIZAH", kelas: "7C" },
+    { id: "1131495907", nama: "AZKIA NURUL AZZAHRA", kelas: "7C" },
+    { id: "1133496739", nama: "FAIZA NURUL FATHIA", kelas: "7C" },
+    { id: "1134731773", nama: "FATHIA NURUL FAUZIAH", kelas: "7C" },
+    { id: "1138988351", nama: "GHAIDA NURUL GHAITSA", kelas: "7C" },
+    { id: "1125211910", nama: "GHAITSA NURUL GHAIDA", kelas: "7C" },
+    { id: "1121544253", nama: "HANI NURUL HANIFAH", kelas: "7C" },
+    { id: "1132148111", nama: "HANIFAH NURUL HANI", kelas: "7C" },
+    { id: "1127599021", nama: "HASNA NURUL HASNA", kelas: "7C" },
+    { id: "1131331551", nama: "IFA NURUL IFAH", kelas: "7C" },
+    { id: "1136274111", nama: "IFAH NURUL IFA", kelas: "7C" },
+    { id: "1121345381", nama: "INAS NURUL INAYAH", kelas: "7C" },
+    { id: "1135541666", nama: "INAYAH NURUL INAS", kelas: "7C" },
+    { id: "1138865666", nama: "IZA NURUL IZAH", kelas: "7C" },
+    { id: "1134673623", nama: "IZAH NURUL IZA", kelas: "7C" },
+    { id: "1121213444", nama: "KHANSA NURUL KHANSA", kelas: "7C" },
+    { id: "1136236665", nama: "KHAIRA NURUL KHAIRA", kelas: "7C" },
+    { id: "1129188831", nama: "LAILA NURUL LAILA", kelas: "7C" },
+    { id: "1123849133", nama: "MAIRA NURUL MAIRA", kelas: "7C" },
+    { id: "1127331551", nama: "NAILA NURUL NAILA", kelas: "7C" },
+    { id: "1128911041", nama: "NAJWA NURUL NAJWA", kelas: "7C" },
+    { id: "1134637775", nama: "RAFA NURUL RAFA", kelas: "7C" },
+    { id: "1133177651", nama: "RAISA NURUL RAISA", kelas: "7C" },
+    { id: "1137689108", nama: "SALSABILA NURUL SALSABILA", kelas: "7C" },
+    { id: "1133036481", nama: "SYIFA NURUL SYIFA", kelas: "7C" },
+    { id: "1129166617", nama: "ZAHRA NURUL ZAHRA", kelas: "7C" },
+    { id: "0128911048", nama: "ABIDZAR AL-GHIFARI", kelas: "8A" },
+    { id: "0121345381", nama: "AHMAD RAYYAN AL-GHAZI", kelas: "8A" },
+    { id: "0122183078", nama: "AKBAR MAULANA", kelas: "8A" },
+    { id: "0127963314", nama: "AL-GHIFARI", kelas: "8A" },
+    { id: "0127779202", nama: "AR-RASYID", kelas: "8A" },
+    { id: "0123512214", nama: "AS-SIDDIQ", kelas: "8A" },
+    { id: "0122700074", nama: "ATTARIZ ZAHRAN", kelas: "8A" },
+    { id: "0128510991", nama: "AZKA AL-GHIFARI", kelas: "8A" },
+    { id: "0114015694", nama: "ABIDZAR AL-GHIFARI", kelas: "8B" },
+    { id: "0113214811", nama: "AHMAD RAYYAN", kelas: "8B" },
+    { id: "0112154425", nama: "AKBAR MAULANA", kelas: "8B" },
+    { id: "0114731773", nama: "AL-GHIFARI", kelas: "8B" },
+    { id: "0118988351", nama: "AR-RASYID", kelas: "8B" },
+    { id: "0111331551", nama: "AS-SIDDIQ", kelas: "8B" },
+    { id: "0112521191", nama: "ATTARIZ ZAHRAN", kelas: "8B" },
+    { id: "0113149590", nama: "AZKA AL-GHIFARI", kelas: "8B" },
+    { id: "1114868777", nama: "AI SYIFA RIZKIYAH", kelas: "8C" },
+    { id: "1118459438", nama: "ALMIRA ALIKA PUTRI", kelas: "8C" },
+    { id: "1116329731", nama: "ALYA FAUZIAH", kelas: "8C" },
+    { id: "1112316277", nama: "ANDHITA NURHAYATI", kelas: "8C" },
+    { id: "1115401569", nama: "ANNISA NUR SHIDQIA", kelas: "8C" },
+    { id: "1114114406", nama: "ASHILA NUR AZIZAH", kelas: "8C" },
+    { id: "1112384913", nama: "ASKANA SAKHI AZKADINA", kelas: "8C" },
+    { id: "1114015694", nama: "ASYIFA NURAINI", kelas: "8C" },
+    { id: "0113835590", nama: "SYAHIRA AZKA NAFISA", kelas: "9B" },
+    { id: "0105585206", nama: "ABIZAR NURON AL KAUTSAR", kelas: "9C" },
+    { id: "0111166304", nama: "ALFAN FADLI RAMADHAN", kelas: "9C" }
 ];
 
         let attendanceData = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || [];
-        let isProcessing = false;
-        let html5QrScanner;
-        let currentFilter = 'daily';
+    let isProcessing = false;
+    let html5QrScanner;
 
-        // 1. JAM LIVE & STATUS BANNER (PASTI FORMAT HH:mm:ss)
-        setInterval(() => {
-            const d = new Date();
-            const h = String(d.getHours()).padStart(2, '0');
-            const m = String(d.getMinutes()).padStart(2, '0');
-            const s = String(d.getSeconds()).padStart(2, '0');
-            const timeStr = `${h}:${m}:${s}`; 
+    // --- FUNGSI NAVIGASI (Ditempel ke window biar onclick jalan) ---
+    window.switchView = function(view) {
+        const vScan = document.getElementById('view-scan');
+        const vDash = document.getElementById('view-dashboard');
+        const bScan = document.getElementById('btn-nav-scan');
+        const bDash = document.getElementById('btn-nav-dash');
 
-            document.getElementById('live-clock').innerText = timeStr;
-
-            const isFriday = d.getDay() === 5;
-            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-            const shiftEl = document.getElementById('current-shift');
-
-            if (timeStr >= sExit && timeStr <= eExit) {
-                shiftEl.innerHTML = '<span class="status-dot bg-blue-500"></span> Jam Pulang';
-            } else if (timeStr < CONFIG.START_TIME) {
-                shiftEl.innerHTML = '<span class="status-dot bg-slate-500"></span> Belum Dibuka';
-            } else if (timeStr <= CONFIG.LATE_TIME) {
-                shiftEl.innerHTML = '<span class="status-dot bg-emerald-500"></span> On Time';
-            } else if (timeStr <= CONFIG.LATE_DEADLINE) {
-                shiftEl.innerHTML = `<span class="status-dot bg-amber-500"></span> Terlambat`;
-            } else {
-                shiftEl.innerHTML = '<span class="status-dot bg-red-500"></span> Absen Ditutup';
-            }
-        }, 1000);
-
-        // 2. UI FEEDBACK FUNCTIONS (PENTING: Biar gak error pas dipanggil)
-        function showSuccess(name, time) {
-            const layer = document.getElementById('cooldown-layer');
-            document.getElementById('cooldown-name').innerText = name;
-            document.getElementById('cooldown-status').innerText = "BERHASIL ABSEN";
-            document.getElementById('cooldown-icon-box').className = "w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-bounce bg-emerald-500";
-            layer.classList.remove('hidden');
-            setTimeout(() => { layer.classList.add('hidden'); }, 3000);
+        if (view === 'scan') {
+            vScan.classList.remove('hidden'); vDash.classList.add('hidden');
+            bScan.classList.add('bg-indigo-600', 'text-white');
+            bDash.classList.remove('bg-indigo-600', 'text-white');
+        } else {
+            vScan.classList.add('hidden'); vDash.classList.remove('hidden');
+            bDash.classList.add('bg-indigo-600', 'text-white');
+            bScan.classList.remove('bg-indigo-600', 'text-white');
+            updateDashboard(); // Update list pas buka database
         }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
 
-        function showError(title, msg) {
-            const layer = document.getElementById('cooldown-layer');
-            document.getElementById('cooldown-name').innerText = msg;
-            document.getElementById('cooldown-status').innerText = title;
-            document.getElementById('cooldown-icon-box').className = "w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-shake bg-red-500";
-            layer.classList.remove('hidden');
-            setTimeout(() => { layer.classList.add('hidden'); isProcessing = false; }, 3000);
+    // --- FUNGSI SCANNER ---
+    window.initScanner = async function() {
+        document.getElementById('start-layer').classList.add('hidden');
+        document.getElementById('scan-line-element').style.display = 'block';
+        
+        html5QrScanner = new Html5Qrcode("reader");
+        html5QrScanner.start(
+            { facingMode: "environment" }, 
+            { fps: 20, qrbox: 250 },
+            onScanSuccess
+        ).catch(err => alert("Gagal aktifin kamera: " + err));
+    };
+
+    function onScanSuccess(decodedText) {
+    if (isProcessing) return;
+    
+    const cleanId = decodedText.trim();
+    const student = siswa.find(s => s.id === cleanId);
+
+    if (!student) {
+        alert("Siswa tidak dikenal!");
+        return;
+    }
+
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+    const todayStr = now.toLocaleDateString('id-ID').replace(/\//g, '-');
+    
+    // Cek apakah sudah absen hari ini di lokal
+    const existing = attendanceData.find(e => e.id === student.id && e.date === todayStr);
+    
+    // Cek Jadwal Pulang
+    const isFriday = now.getDay() === 5;
+    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+    const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+    const isExitTime = timeStr >= sExit && timeStr <= eExit;
+
+    // Proteksi: Kalau sudah absen masuk dan sekarang bukan jam pulang, jangan double scan
+    if (existing && !isExitTime) {
+        console.log("Sudah absen masuk hari ini.");
+        return;
+    }
+
+    // Proteksi: Kalau sudah absen pulang, jangan scan lagi
+    if (existing && existing.pukul_pulang) {
+        console.log("Sudah absen pulang.");
+        return;
+    }
+
+    isProcessing = true;
+    processAttendance(student, timeStr, todayStr, existing);
+}
+
+function processAttendance(student, timeStr, today, existing) {
+    const isLate = timeStr > CONFIG.LATE_TIME;
+    
+    // Siapkan data untuk dikirim
+    const payload = {
+        id: student.id,
+        name: student.nama,
+        class: student.kelas,
+        date: today,
+        timestamp: Date.now()
+    };
+
+    // Tentukan ini absen masuk atau pulang
+    const isFriday = new Date().getDay() === 5;
+    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+    const isExitTime = timeStr >= sExit;
+
+    if (isExitTime) {
+        payload.pukul_pulang = timeStr;
+    } else {
+        payload.time = timeStr;
+        payload.late = isLate;
+    }
+
+    // Kirim ke Firebase pake fungsi window.sendToFirebase yang sudah ada di script module lo
+    window.sendToFirebase(payload, !!existing, existing ? (existing.fbKey || student.id) : null);
+
+    // Update efek di layar
+    if (isLate && !isExitTime) document.getElementById('snd-late').play();
+    else document.getElementById('snd-success').play();
+
+    showResult(student.nama, isLate && !isExitTime);
+
+    setTimeout(() => { isProcessing = false; }, 3000);
+}
+
+function showResult(name, late) {
+    const layer = document.getElementById('cooldown-layer');
+    if (layer) {
+        document.getElementById('cooldown-name').innerText = name;
+        document.getElementById('cooldown-status').innerText = late ? "TERLAMBAT" : "BERHASIL";
+        layer.classList.remove('hidden');
+        setTimeout(() => layer.classList.add('hidden'), 3000);
+    }
+}
+
+    function updateMiniStats() {
+        const today = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+        const daily = attendanceData.filter(d => d.date === today);
+        document.getElementById('mini-hadir').innerText = daily.filter(d => !d.late).length;
+        document.getElementById('mini-telat').innerText = daily.filter(d => d.late).length;
+    }
+
+    function updateDashboard() {
+        const list = document.getElementById('full-list');
+        list.innerHTML = attendanceData.slice().reverse().map(s => `
+            <div class="glass p-3 rounded-xl border-l-4 ${s.late ? 'border-red-500' : 'border-emerald-500'} mb-2">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] font-bold text-white uppercase">${s.name}</p>
+                        <p class="text-[8px] text-slate-400">${s.class} | ${s.time}</p>
+                    </div>
+                    <span class="text-[8px] font-black ${s.late ? 'text-red-500' : 'text-emerald-500'}">${s.late ? 'TELAT' : 'HADIR'}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+setInterval(() => {
+    const d = new Date();
+    const timeStr = d.toTimeString().split(' ')[0]; // Ambil format HH:MM:SS
+    
+    // 1. Update Jam Digital
+    const clockEl = document.getElementById('live-clock');
+    if (clockEl) clockEl.innerText = timeStr;
+
+    // 2. Update Status (Biar nggak "Checking..." terus)
+    const shiftEl = document.getElementById('current-shift');
+    if (shiftEl) {
+        const isFriday = d.getDay() === 5;
+        const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+        
+        if (timeStr < CONFIG.START_TIME) {
+            shiftEl.innerText = "BELUM BUKA";
+            shiftEl.className = "text-[10px] font-black text-amber-500 uppercase tracking-widest";
+        } else if (timeStr >= sExit) {
+            shiftEl.innerText = "JAM PULANG";
+            shiftEl.className = "text-[10px] font-black text-orange-500 uppercase tracking-widest";
+        } else {
+            shiftEl.innerText = "ABSEN MASUK";
+            shiftEl.className = "text-[10px] font-black text-indigo-400 uppercase tracking-widest";
         }
+    }
+}, 1000);
 
-        // 3. SCANNER ENGINE
-        async function initScanner() {
-            document.getElementById('start-layer').classList.add('hidden');
-            document.getElementById('scan-line-element').style.display = 'block';
-            html5QrScanner = new Html5Qrcode("reader");
-            try {
-                await html5QrScanner.start(
-                    { facingMode: "environment" }, 
-                    { fps: 30, qrbox: { width: 350, height: 350 }, aspectRatio: 1.0 }, 
-                    onScanSuccess
-                );
-            } catch (err) { alert("Kamera Error: " + err); }
+// --- 2. FUNGSI CLEAR HISTORI (Versi Aman Jon) ---
+window.clearList = function() {
+    if (confirm("Hapus tampilan di laptop? (Data di Cloud TETAP AMAN)")) {
+        // 1. Hapus data di memori lokal laptop
+        attendanceData = [];
+        localStorage.removeItem(CONFIG.STORAGE_KEY);
+        
+        // 2. Update tampilan agar langsung kosong
+        if (typeof updateMiniStats === 'function') updateMiniStats();
+        if (typeof updateDashboard === 'function') updateDashboard();
+        
+        const recentList = document.getElementById('recent-list');
+        if (recentList) {
+            recentList.innerHTML = `<p class="text-[10px] text-slate-600 text-center py-4 italic">Layar dibersihkan (Data tetap ada di Cloud)</p>`;
         }
+        
+        // 3. Info tambahan biar gak bingung
+        console.log("Local cleared. Data akan muncul lagi jika halaman di-refresh karena Sync Cloud aktif.");
+        alert("Layar bersih,! Data di Firebase tetap tersimpan rapi.");
+    }
+};
 
-        function onScanSuccess(decodedText) {
-            if (isProcessing) return;
+// --- 3. ONLOAD (Biar pas buka langsung seger) ---
+window.onload = function() {
+    // FIX: Load data dulu sebelum update UI
+    attendanceData = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || [];
+    if (window.updateMiniStats) updateMiniStats();
+    if (window.updateDashboard) updateDashboard();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    // Fungsi update teks banner
+    const masukElem = document.getElementById('jam-masuk-text');
+    const pulangElem = document.getElementById('jam-pulang-text');
 
-            const cleanId = decodedText.trim().replace(/^0+/, '');
-            const student = siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId);
+    if (masukElem) {
+        masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
+    }
+    
+    if (pulangElem) {
+        const isFriday = new Date().getDay() === 5;
+        const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+        pulangElem.innerText = `PULANG: ${sExit.substring(0,5)}`;
+    }
+    
+    console.log("Sistem Siap,!");
+};
 
-            if (!student) {
-                document.getElementById('snd-error').play();
-                showError("DATA TIDAK ADA", "Kartu tidak terdaftar!");
-                return;
-            }
-
-            const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
-            const timeStr = `${h}:${m}:${s}`;
-            const today = now.toLocaleDateString('id-ID');
-            const isFriday = now.getDay() === 5;
-            
-            const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
-            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-
-            // FILTER LOGIKA
-            if (timeStr < sExit) {
-                if (timeStr > CONFIG.LATE_DEADLINE) {
-                    document.getElementById('snd-warning').play();
-                    showError("ABSEN DITUTUP", "Batas Pagi Lewat!");
-                    return;
-                }
-                if (existing) {
-                    document.getElementById('snd-warning').play();
-                    showError("SUDAH ABSEN", "Anda sudah absen pagi!");
-                    return;
-                }
-            } else if (timeStr >= sExit && timeStr <= eExit) {
-                if (existing && existing.pukul_pulang) {
-                    document.getElementById('snd-warning').play();
-                    showError("SUDAH ABSEN", "Anda sudah absen pulang!");
-                    return;
-                }
-            } else {
-                document.getElementById('snd-warning').play();
-                showError("JADWAL KOSONG", "Belum waktunya absen!");
-                return;
-            }
-
-            isProcessing = true;
-            processAttendance(student, timeStr, today, existing);
-        }
-
-        // 4. FIREBASE ENGINE (FIXED MODULAR)
-        function processAttendance(student, timeStr, today, existing) {
-            const isFriday = new Date().getDay() === 5;
-            const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-            const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-            const isExit = timeStr >= sExit && timeStr <= eExit;
-
-            const dataToUpdate = {
-                id: student.id,
-                name: student.nama,
-                class: student.kelas,
-                date: today,
-                timestamp: Date.now()
-            };
-
-            if (isExit) {
-                dataToUpdate.pukul_pulang = timeStr;
-            } else {
-                dataToUpdate.time = timeStr;
-                dataToUpdate.late = timeStr > CONFIG.LATE_TIME;
-            }
-
-            // Path Firebase: Ganti garing (/) jadi strip (-) biar gak error URL
-            const cleanDate = today.replace(/\//g, '-');
-            const attendancePath = `absensi/${cleanDate}/${student.id}`;
-
-            // PENTING: Pakai window.db & window.fbRef (Modular Version)
-            const dbRef = window.fbRef(window.db, attendancePath);
-            
-            window.fbUpdate(dbRef, dataToUpdate).then(() => {
-                // Update Local Memory
-                const idx = attendanceData.findIndex(a => a.id === student.id && a.date === today);
-                if (idx > -1) attendanceData[idx] = {...attendanceData[idx], ...dataToUpdate};
-                else attendanceData.push(dataToUpdate);
-                
-                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
-                
-                document.getElementById('snd-success').play();
-                showSuccess(student.nama, timeStr);
-                updateMiniStats();
-                updateDashboard();
-            }).catch(err => {
-                console.error(err);
-                showError("DB ERROR", "Cek Koneksi!");
-            }).finally(() => {
-                setTimeout(() => { isProcessing = false; }, 3000);
-            });
-        }
-
-        function updateMiniStats() {
-            const today = new Date().toLocaleDateString('id-ID');
-            const daily = attendanceData.filter(e => e.date === today);
-            document.getElementById('mini-hadir').innerText = daily.length;
-            document.getElementById('mini-telat').innerText = daily.filter(e => e.late).length;
+        function setFilter(type) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`f-${type}`).classList.add('active');
+            updateDashboard();
         }
 
         function switchView(view) {
             const vScan = document.getElementById('view-scan');
             const vDash = document.getElementById('view-dashboard');
+            const bScan = document.getElementById('btn-nav-scan');
+            const bDash = document.getElementById('btn-nav-dash');
+
             if (view === 'scan') {
                 vScan.classList.remove('hidden');
                 vDash.classList.add('hidden');
+                bScan.className = "flex items-center gap-2 py-3 px-6 rounded-full bg-indigo-600 text-white transition-all shadow-lg";
+                bDash.className = "flex items-center gap-2 py-3 px-6 rounded-full text-slate-500 hover:text-indigo-400 transition-all";
             } else {
                 vScan.classList.add('hidden');
                 vDash.classList.remove('hidden');
+                bDash.className = "flex items-center gap-2 py-3 px-6 rounded-full bg-indigo-600 text-white transition-all shadow-lg";
+                bScan.className = "flex items-center gap-2 py-3 px-6 rounded-full text-slate-500 hover:text-indigo-400 transition-all";
                 updateDashboard();
             }
         }
 
-        function updateDashboard() {
-            const now = new Date();
-            const todayStr = now.toLocaleDateString('id-ID');
-            const container = document.getElementById('full-list');
-            if (!container) return;
+       async function initScanner() {
+    document.getElementById('start-layer').classList.add('hidden');
+    document.getElementById('scan-line-element').style.display = 'block';
+    
+    html5QrScanner = new Html5Qrcode("reader");
+    try {
+        await html5QrScanner.start(
+            { facingMode: "environment" }, 
+            { 
+                fps: 30, 
+                qrbox: { width: 400, height: 400 }, 
+                aspectRatio: 1.0 
+            }, 
+            onScanSuccess
+        );
+    } catch (err) {
+        alert("Kamera tidak ditemukan.");
+    }
+}
 
-            const filtered = attendanceData.filter(e => e.date === todayStr);
-            
-            container.innerHTML = filtered.map(s => `
-                <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${s.late ? 'border-red-500 bg-red-500/5' : 'border-emerald-500 bg-emerald-500/5'} mb-2">
-                    <div>
-                        <p class="text-[9px] font-black text-white uppercase">${s.name}</p>
-                        <p class="text-[7px] text-slate-500 uppercase">${s.class} • ${s.date}</p>
-                        <p class="text-[7px] text-indigo-400 font-bold">M: ${s.time || '--'} | P: ${s.pukul_pulang || '--'}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-[6px] font-black uppercase px-2 py-1 rounded-full ${s.late ? 'bg-red-500/20 text-red-500' : 'bg-emerald-500/20 text-emerald-400'}">
-                            ${s.late ? 'Terlambat' : 'Hadir'}
-                        </span>
-                    </div>
-                </div>
-            `).join('');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+        function onScanSuccess(decodedText) {
+    if (isProcessing) return;
+    const cleanId = decodedText.trim().replace(/^0+/, '');
+    const student = siswa.find(s => s.id.replace(/^0+/, '') === cleanId);
+
+    if (!student) return;
+
+    const now = new Date();
+
+    const isFriday = now.getDay() === 5;
+
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+
+    const today = now.toLocaleDateString('id-ID');
+
+    const existing = attendanceData.find(e => e.id.replace(/^0+/, '') === cleanId && e.date === today);
+
+
+    const startExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+
+    const endExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+
+
+if (timeStr < startExit) { 
+
+    if (timeStr > CONFIG.LATE_DEADLINE) {
+
+        document.getElementById('snd-warning').play();
+
+        const batasJam = CONFIG.LATE_DEADLINE.substring(0, 5);
+
+        showError("ABSEN DITUTUP", `Batas Jam ${batasJam} sudah lewat!`);
+
+        isProcessing = false; 
+
+        return;
+
+    } 
+   
+    if (existing) { 
+        document.getElementById('snd-warning').play(); 
+        isProcessing = false;
+        return; 
+    }
+} else if (timeStr >= startExit && timeStr <= endExit) {
+    if (existing && existing.pukul_pulang) { 
+        document.getElementById('snd-warning').play(); 
+        isProcessing = false;
+        return; 
+    }
+} else {
+    document.getElementById('snd-warning').play();
+    showError("JADWAL KOSONG", "Belum waktunya absen!");
+    isProcessing = false;
+    return;
+}
+
+    isProcessing = true;
+    processAttendance(student, timeStr, today, existing);
+}
+
+      function processAttendance(student, timeStr, today, existing) {
+    const d = new Date();
+    const isFriday = d.getDay() === 5;
+    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+    const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+    
+    const isExit = timeStr >= sExit && timeStr <= eExit;
+    
+    // FIX: Cara panggil Firebase yang bener untuk versi Modular
+    const datePath = today.replace(/\//g, '-');
+    const attendanceRef = window.fbRef(window.db, `absensi/${datePath}/${student.id}`);
+    
+    const dataToUpdate = {
+        name: student.nama,
+        class: student.kelas,
+        date: today,
+        timestamp: Date.now()
+    };
+
+    if (isExit) {
+        dataToUpdate.pukul_pulang = timeStr;
+    } else {
+        dataToUpdate.time = timeStr;
+        dataToUpdate.late = timeStr > CONFIG.LATE_TIME;
+    }
+
+    // Kirim ke Firebase
+    window.fbUpdate(attendanceRef, dataToUpdate).then(() => {
+        document.getElementById('snd-success').play();
+        
+        // Simpan ke Local Storage biar tampilan langsung update di layar
+        const localIdx = attendanceData.findIndex(e => e.id === student.id && e.date === today);
+        if(localIdx > -1) {
+            attendanceData[localIdx] = {...attendanceData[localIdx], ...dataToUpdate};
+        } else {
+            attendanceData.push({id: student.id, ...dataToUpdate});
+        }
+        
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
+        
+        // Update UI
+        updateMiniStats();
+        renderRecent();
+        
+        // Notifikasi Berhasil
+        const statusMsg = isExit ? "ABSEN PULANG" : "ABSEN MASUK";
+        showSuccess(statusMsg, student.nama);
+        
+    }).catch((err) => {
+        console.error("Firebase Error:", err);
+        alert("Gagal konek ke Firebase! Cek internet.");
+    }).finally(() => {
+        setTimeout(() => { isProcessing = false; }, 2000);
+    });
+}
+
+        function updateMiniStats() {
+            const today = new Date().toLocaleDateString('id-ID');
+            const daily = attendanceData.filter(e => e.date === today);
+            document.getElementById('mini-hadir').innerText = daily.filter(e => !e.late).length;
+            document.getElementById('mini-telat').innerText = daily.filter(e => e.late).length;
         }
 
-        window.onload = function() {
-            updateMiniStats();
-            const masukElem = document.getElementById('jam-masuk-text');
-            if (masukElem) masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
-            console.log("Sistem Darul Abror Siap, Jon!");
-            lucide.createIcons();
-        };
-    </script>
+        function updateDashboard() {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('id-ID');
+    const filter = typeof currentFilter !== 'undefined' ? currentFilter : 'daily';
+    
+    let filtered = [];
+    if (filter === 'daily') {
+        filtered = attendanceData.filter(e => e.date === todayStr);
+    } else if (filter === 'weekly') {
+        const oneWeekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        filtered = attendanceData.filter(e => e.timestamp >= oneWeekAgo);
+    } else {
+        const oneMonthAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+        filtered = attendanceData.filter(e => e.timestamp >= oneMonthAgo);
+    }
+
+    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = filtered.length;
+    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = filtered.filter(e => e.late).length;
+
+    const absentContainer = document.getElementById('absent-list');
+    if (absentContainer) {
+        if (filter === 'daily') {
+            const presentIds = filtered.map(e => e.id.toString().replace(/^0+/, ''));
+            const missing = siswa.filter(s => !presentIds.includes(s.id.toString().replace(/^0+/, '')));
+            absentContainer.innerHTML = missing.map(info => `
+                <div class="flex items-center justify-between p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                    <div>
+                        <span class="text-[9px] font-black text-slate-300 uppercase block">${info.nama}</span>
+                        <span class="text-[7px] font-bold text-slate-500 uppercase">${info.kelas}</span>
+                    </div>
+                    <span class="text-[7px] font-black text-red-500/60 uppercase">Mangkir</span>
+                </div>
+            `).join('') || '<p class="text-center text-[10px] text-slate-500 py-4 italic">Semua hadir hari ini.</p>';
+        }
+    }
+
+  const fullListContainer = document.getElementById('full-list');
+    if (fullListContainer) {
+        fullListContainer.innerHTML = filtered.map(s => {
+            // Tentukan label status & warna (Hanya pakai variabel lokal ini)
+            const labelStatus = s.late ? 'TERLAMBAT' : 'TEPAT WAKTU';
+            const colorStatus = s.late ? 'text-red-400' : 'text-emerald-400';
+            const borderColor = s.late ? 'border-red-500' : 'border-emerald-500';
+
+            return `
+                <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${borderColor} mb-2">
+                    <div>
+                        <p class="text-[9px] font-black text-white uppercase">${s.name}</p>
+                        <p class="text-[7px] font-bold text-slate-500 uppercase">${s.class} | ${s.date}</p>
+                        <p class="text-[7px] ${colorStatus} font-black uppercase">${labelStatus}</p>
+                        <p class="text-[7px] text-indigo-400 italic">Pulang: ${s.pukul_pulang || '--'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-white tabular-nums">${s.time}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// --- FUNGSI CLEAR LIST (TOMBOL SAMPAH) ---
+window.clearList = function() {
+    if (confirm("Hapus semua histori absensi ini? (Data di Firebase tetap aman)")) {
+        attendanceData = [];
+        localStorage.removeItem(CONFIG.STORAGE_KEY);
+        
+        if (typeof updateMiniStats === 'function') updateMiniStats();
+        if (typeof updateDashboard === 'function') updateDashboard();
+        
+        const recentList = document.getElementById('recent-list');
+        if (recentList) {
+            recentList.innerHTML = `<p class="text-[10px] text-slate-600 text-center py-4 italic">Belum ada aktivitas hari ini</p>`;
+        }
+        alert("Histori lokal berhasil dibersihkan!");
+    }
+};
+
+function renderRecent() {
+    const today = new Date().toLocaleDateString('id-ID');
+    const daily = attendanceData.filter(e => e.date === today);
+    const container = document.getElementById('recent-list');
+    
+    if (daily.length === 0) {
+        if (container) container.innerHTML = `<p class="text-[10px] text-slate-600 text-center py-4 italic">Belum ada aktivitas hari ini</p>`;
+        return;
+    }
+
+    container.innerHTML = daily.slice(-3).reverse().map(s => `
+        <div class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 animate-in slide-in-from-left duration-300">
+            <div class="flex-1 overflow-hidden">
+                <p class="text-[10px] font-black text-white uppercase truncate">${s.name}</p>
+                <p class="text-[8px] font-bold text-slate-500 uppercase">${s.class}</p>
+            </div>
+            <p class="text-[10px] font-black text-slate-400 tabular-nums">${s.time}</p>
+        </div>
+    `).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function downloadExcel() {
+    const today = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+    const data = attendanceData.map(i => ({ 
+        "Tanggal": i.date, 
+        "Masuk": i.time, 
+        "Pulang": i.pukul_pulang || "--", 
+        "Nama": i.name, 
+        "Kelas": i.class, 
+        "Status": i.late ? "TERLAMBAT" : "TEPAT WAKTU" 
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+    XLSX.writeFile(wb, `Laporan_Absensi_DarulAbror_${today}.xlsx`);
+}
+
+// --- FUNGSI SINKRONISASI CLOUD ---
+function startLiveSync() {
+    const today = new Date();
+    const datePath = today.toLocaleDateString('id-ID').replace(/\//g, '-');
+    
+    console.log("Mencoba sinkronisasi untuk tanggal:", datePath);
+
+    if (window.db && window.fbRef && window.fbOnValue) {
+        const dbRef = window.fbRef(window.db, `absensi/${datePath}`);
+
+        window.fbOnValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const syncedData = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                }));
+                
+                attendanceData = syncedData;
+                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
+                
+                if (typeof updateMiniStats === 'function') updateMiniStats();
+                if (typeof updateDashboard === 'function') updateDashboard();
+                if (typeof renderRecent === 'function') renderRecent();
+                
+                console.log("Data Berhasil Sinkron dari Cloud!");
+            }
+        });
+    } else {
+        console.warn("Alat Firebase belum siap di window.");
+    }
+}
+window.downloadRekap = function() {
+    // Cek kalau datanya kosong
+    if (!attendanceData || attendanceData.length === 0) {
+        alert("Belum ada data untuk di-download,!");
+        return;
+    }
+
+    const today = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+    
+    // Header Kolom (Trik sep=, biar Excel otomatis bagi kolom)
+    let csvContent = "sep=,\nID Siswa,Nama,Kelas,Jam Masuk,Status,Jam Pulang\n";
+
+    // Isi Data dari attendanceData (yang udah sinkron sama Cloud)
+    attendanceData.forEach(row => {
+        const status = row.late ? "Terlambat" : "Tepat Waktu";
+        const jamMasuk = row.time || "-";
+        const jamPulang = row.pukul_pulang || "-";
+        
+        csvContent += `${row.id},${row.name},${row.class},${jamMasuk},${status},${jamPulang}\n`;
+    });
+
+    // Proses download file .csv (Bisa dibuka langsung di Excel)
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Rekap_Absen_${today}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+// --- ONLOAD UNTUK INITIALIZE DATA ---
+window.onload = function() {
+    // 1. Ambil data dari Local Storage
+    try {
+        attendanceData = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || [];
+    } catch (e) {
+        attendanceData = [];
+    }
+    
+    // 2. Update UI
+    if (typeof updateMiniStats === 'function') updateMiniStats();
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof renderRecent === 'function') renderRecent();
+
+    // 3. Update Teks Jadwal di Banner
+    const masukElem = document.getElementById('jam-masuk-text');
+    const pulangElem = document.getElementById('jam-pulang-text');
+
+    if (masukElem) {
+        masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
+    }
+    
+    if (pulangElem) {
+        const isFriday = new Date().getDay() === 5;
+        const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+        const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+        pulangElem.innerText = `PULANG: ${sExit.substring(0,5)} - ${eExit.substring(0,5)}`;
+    }
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    // 4. Jalankan Sinkronisasi Cloud
+    startLiveSync();
+
+    console.log("Sistem Siap,!");
+};
+</script>
 </body>
 </html>
