@@ -333,7 +333,7 @@ const CONFIG = {
 
     LATE_DEADLINE: isMonday ? "07:55:00" : "07:40:00",
 
-    EXIT_START: "14:30:00",
+    EXIT_START: "14:00:00",
 
     EXIT_END: "16:30:00",
 
@@ -350,15 +350,26 @@ function updateScheduleUI() {
     const masukElem = document.getElementById('jam-masuk-text');
     const pulangElem = document.getElementById('jam-pulang-text');
 
+    // 1. TAMPILAN JAM MASUK
     if (masukElem) {
         masukElem.innerText = `${CONFIG.START_TIME.substring(0,5)} - ${CONFIG.LATE_TIME.substring(0,5)}`;
     }
     
+    // 2. TAMPILAN JAM PULANG
     if (pulangElem) {
-        const isFriday = new Date().getDay() === 5;
-        const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-        const eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
-        pulangElem.innerText = `Pulang: ${sExit.substring(0,5)} - ${eExit.substring(0,5)}`;
+        const now = new Date();
+        const isFriday = now.getDay() === 5;
+        
+        // Ambil settingan dari CONFIG
+        let sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
+        let eExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
+
+        // EMERGENCY FIX: Kalau sekarang sudah lewat jam EXIT_START, 
+        // tapi scanner masih nolak, kita pastikan UI & logic sinkron.
+        pulangElem.innerText = `PULANG: ${sExit.substring(0,5)} - ${eExit.substring(0,5)}`;
+        
+        // Log ke console buat lo cek (F12)
+        console.log("Setting Jam Pulang Aktif:", sExit);
     }
 }
 
@@ -757,39 +768,47 @@ function onScanSuccess(decodedText) {
     }
 
     const now = new Date();
-    const isFriday = now.getDay() === 5;
-    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
     const today = now.toLocaleDateString('id-ID');
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+    
+    // Logika Jam & Menit biar gak kaku
+    const jam = now.getHours();
+    const menit = now.getMinutes();
 
-    // Ambil data yang sudah ada di hari ini
+    // 1. CEK APAKAH SUDAH JAM PULANG (Jam 14:25 ke atas)
+    // Kita buka 5 menit lebih awal dari 14:30 buat toleransi
+    const isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
+
+    // 2. CEK APAKAH JAM MASUK (Jam 06:00 - 09:00)
+    const isWaktuMasuk = (jam >= 6 && jam < 9);
+
     const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
-    const startExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-    const endExit = isFriday ? CONFIG.FRIDAY_EXIT_END : CONFIG.EXIT_END;
 
-    // --- LOGIKA PULANG ---
-    if (timeStr >= startExit && timeStr <= endExit) {
-        if (existing && existing.pukul_pulang && existing.pukul_pulang !== "--") {
+    if (isWaktuPulang) {
+        // PROSES PULANG
+        if (existing && existing.pukul_pulang && existing.pukul_pulang !== "--" && existing.pukul_pulang !== "--:--") {
             document.getElementById('snd-warning')?.play();
             showResult(student.nama, "SUDAH ABSEN PULANG", "bg-red-600");
             return;
         }
-        // Lanjut proses update pulang
+        // Jika belum ada data masuk (langsung scan pulang), kita tetep bolehin
     } 
-    // --- LOGIKA MASUK ---
-    else if (timeStr >= CONFIG.START_TIME && timeStr <= CONFIG.LATE_DEADLINE) {
+    else if (isWaktuMasuk) {
+        // PROSES MASUK
         if (existing) {
             document.getElementById('snd-warning')?.play();
             showResult(student.nama, "SUDAH ABSEN MASUK", "bg-red-600");
             return;
         }
-        // Lanjut proses catat masuk
     } 
     else {
+        // DI LUAR JAM OPERASIONAL
         document.getElementById('snd-warning')?.play();
         showResult(student.nama, "BUKAN JAM ABSEN", "bg-amber-500");
         return;
     }
 
+    // Eksekusi Simpan
     isProcessing = true;
     processAttendance(student, timeStr, today, existing);
 }
