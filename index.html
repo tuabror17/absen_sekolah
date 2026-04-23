@@ -204,10 +204,12 @@
     </div>
 
     <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-3">
-        <i data-lucide="search" class="w-4 h-4 text-slate-500 ml-2"></i>
-        <input type="text" id="search-name" onkeyup="updateDashboard()" placeholder="Cari nama siswa atau kelas..." 
-               class="bg-transparent border-none text-white text-[11px] font-bold focus:ring-0 w-full placeholder:text-slate-600 outline-none">
-    </div>
+    <i data-lucide="search" class="w-4 h-4 text-slate-500 ml-2"></i>
+    <input type="text" id="search-name" 
+           onkeyup="if(typeof updateDashboard === 'function') updateDashboard()" 
+           placeholder="Cari nama siswa atau kelas..." 
+           class="bg-transparent border-none text-white text-[11px] font-bold focus:ring-0 w-full placeholder:text-slate-600 outline-none">
+</div>
 
     <div class="grid grid-cols-3 gap-3">
         <div class="glass p-4 rounded-2xl text-center">
@@ -619,6 +621,7 @@ function updateScheduleUI() {
   { id: "0097170769", nama: "MAULANA YUSUF", kelas: "10 SMA" },
   { id: "0101189109", nama: "MUHAMAD RIJKI PATUROHMAN", kelas: "10 SMA" },
   { id: "0091254125", nama: "MUHAMMAD GILDAN RACHMAN GUNAWAN", kelas: "10 SMA" },
+  { id: "0097070042", nama: "MUHAMMAD RASYAD GINANJAR", kelas: "10 SMA" },
   { id: "3094132037", nama: "MUHAMMAD SYAMIL RUMI HAKAMI", kelas: "10 SMA" },
   { id: "0107557184", nama: "ROFIQ MIFTAH RIZIQ", kelas: "10 SMA" },
   { id: "0105655561", nama: "SAMSUL ABDUL RAPI ANDALUSI", kelas: "10 SMA" },
@@ -836,40 +839,66 @@ function showResult(name, status, bgColor) {
 }
 
 function processAttendance(student, timeStr, today, existing) {
-    const isFriday = new Date().getDay() === 5;
-    const sExit = isFriday ? CONFIG.FRIDAY_EXIT_START : CONFIG.EXIT_START;
-    const isExit = timeStr >= sExit;
-    
-    const payload = existing ? { ...existing } : {
-        id: student.id,
-        name: student.nama,
-        class: student.kelas,
-        date: today,
-        timestamp: Date.now(),
-        time: timeStr,
-        late: timeStr > CONFIG.LATE_TIME,
-        pukul_pulang: "--"
-    };
-
-    if (isExit) {
-        payload.pukul_pulang = timeStr;
+    if (!student) {
+        isProcessing = false;
+        return;
     }
 
-    // Kirim ke Firebase - window.sendToFirebase sudah lo definisikan di baris 420
+    const now = new Date();
+    const jam = now.getHours();
+    const menit = now.getMinutes();
+    
+    // Tentukan ini jam pulang (Jam 14:25 ke atas)
+    const isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
+    const namaSiswa = student.nama || student.name || "Siswa";
+    const cleanId = student.id.toString().replace(/^0+/, '');
+
+    let payload;
+    let customId = cleanId; // ID default buat masuk
+
+    if (isWaktuPulang) {
+        // --- BUAT DATA BARU KHUSUS PULANG ---
+        customId = cleanId + "_OUT"; // Kita kasih penanda biar gak nimpa data pagi
+        payload = {
+            id: customId,
+            student_id: cleanId, // Tetep simpan ID asli buat relasi
+            name: namaSiswa,
+            class: student.kelas || student.class || "-",
+            date: today,
+            timestamp: Date.now(),
+            pukul_pulang: timeStr,
+            type: "OUT" // Penanda bahwa ini data pulang
+        };
+    } else {
+        // --- BUAT DATA BARU KHUSUS MASUK ---
+        payload = {
+            id: cleanId,
+            name: namaSiswa,
+            class: student.kelas || student.class || "-",
+            date: today,
+            timestamp: Date.now(),
+            time: timeStr,
+            late: timeStr > CONFIG.LATE_TIME,
+            type: "IN" // Penanda bahwa ini data masuk
+        };
+    }
+
+    // KIRIM KE FIREBASE
+    // Kita pake customId biar record-nya jadi dua baris di Firebase
     if (window.sendToFirebase) {
+        // Pastikan di sendToFirebase lo pake ID dari payload ini
         window.sendToFirebase(payload);
     }
 
-    // Feedback visual
-    if (isExit) {
-        document.getElementById('snd-success')?.play();
-        showResult(student.nama, "PULANG BERHASIL", "bg-emerald-500");
+    // Feedback Visual
+    document.getElementById('snd-success')?.play();
+    if (isWaktuPulang) {
+        showResult(namaSiswa, "PULANG BERHASIL", "bg-blue-600");
     } else {
-        document.getElementById('snd-success')?.play();
-        showResult(student.nama, payload.late ? "TERLAMBAT" : "BERHASIL MASUK", payload.late ? "bg-red-600" : "bg-emerald-500");
+        showResult(namaSiswa, payload.late ? "TERLAMBAT" : "BERHASIL MASUK", payload.late ? "bg-red-600" : "bg-emerald-500");
     }
-    
-    // UI Update otomatis karena ada startLiveSync() di baris 707
+
+    setTimeout(() => { isProcessing = false; }, 1500);
 }
 // ==========================================
 // 4. UI UPDATERS & STATS
@@ -890,31 +919,38 @@ function updateDashboard() {
     const filter = typeof currentFilter !== 'undefined' ? currentFilter : 'daily';
     const searchQuery = document.getElementById('search-name') ? document.getElementById('search-name').value.toLowerCase().trim() : '';
     
-    let presentData = [];
+    let presentData = (typeof attendanceData !== 'undefined') ? attendanceData : [];
+    
+    // 1. Filter Waktu
     if (filter === 'daily') {
-        presentData = attendanceData.filter(e => e.date === todayStr);
+        presentData = presentData.filter(e => e.date === todayStr);
     } else if (filter === 'weekly') {
         const oneWeekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
-        presentData = attendanceData.filter(e => e.timestamp >= oneWeekAgo);
+        presentData = presentData.filter(e => e.timestamp >= oneWeekAgo);
     } else {
         const oneMonthAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
-        presentData = attendanceData.filter(e => e.timestamp >= oneMonthAgo);
+        presentData = presentData.filter(e => e.timestamp >= oneMonthAgo);
     }
 
+    // 2. Mapping Data Siswa (Logika Penggabungan IN & OUT)
     let displayList = [];
-    if (filter === 'daily') {
+    if (filter === 'daily' && typeof siswa !== 'undefined') {
         displayList = siswa.map(s => {
-            const studentId = s.id.toString().replace(/^0+/, '');
-            const record = presentData.find(p => p.id.toString().replace(/^0+/, '') === studentId);
+            const sId = s.id.toString().replace(/^0+/, '');
+            
+            // CARI DATA MASUK (ID asli)
+            const recordIn = presentData.find(p => p.id.toString().replace(/^0+/, '') === sId);
+            // CARI DATA PULANG (ID_OUT)
+            const recordOut = presentData.find(p => p.id.toString() === sId + "_OUT");
+
             return {
-                name: s.nama || s.name,
+                name: s.nama || s.name || "Siswa",
                 id: s.id,
-                // KOREKSI DISINI: Cek s.kelas dulu baru s.class
                 class: s.kelas || s.class || 'Tanpa Kelas', 
-                time: record ? record.time : '--:--',
-                pukul_pulang: record ? (record.pukul_pulang || '--:--') : '--:--',
-                late: record ? (record.late === true) : null,
-                isPresent: !!record
+                time: recordIn ? recordIn.time : '--:--',
+                pukul_pulang: recordOut ? recordOut.pukul_pulang : '--:--',
+                late: recordIn ? (recordIn.late === true) : false,
+                isPresent: !!recordIn || !!recordOut
             };
         });
     } else {
@@ -927,45 +963,39 @@ function updateDashboard() {
         }));
     }
 
+    // 3. Filter Search
     if (searchQuery) {
         displayList = displayList.filter(item => {
-            const n = item.name ? item.name.toLowerCase() : "";
-            const c = item.class ? item.class.toLowerCase() : "";
-            const i = item.id ? item.id.toString() : "";
+            const n = (item.name || "").toLowerCase();
+            const c = (item.class || "").toLowerCase();
+            const i = (item.id || "").toString();
             return n.includes(searchQuery) || c.includes(searchQuery) || i.includes(searchQuery);
         });
     }
 
-    // UPDATE STATISTIK
-    const dailyPresent = attendanceData.filter(e => e.date === todayStr);
-    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = dailyPresent.filter(e => !e.late).length;
-    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = dailyPresent.filter(e => e.late).length;
-    const mangkirCount = siswa.length - dailyPresent.length;
-    if(document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = (mangkirCount < 0 ? 0 : mangkirCount);
+    // 4. Update Statistik Angka (Hanya hitung berdasarkan data Masuk/IN)
+    const dailyIn = presentData.filter(e => e.date === todayStr && !e.id.toString().includes('_OUT'));
+    
+    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = dailyIn.filter(e => !e.late).length;
+    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = dailyIn.filter(e => e.late).length;
+    if(document.getElementById('dash-belum')) {
+        const mangkirCount = (typeof siswa !== 'undefined' ? siswa.length : 0) - dailyIn.length;
+        document.getElementById('dash-belum').innerText = (mangkirCount < 0 ? 0 : mangkirCount);
+    }
 
-    const fullListContainer = document.getElementById('full-list');
-    if (fullListContainer) {
-        displayList.sort((a, b) => {
-            if (a.isPresent !== b.isPresent) return b.isPresent - a.isPresent;
-            return a.name.localeCompare(b.name);
-        });
+    // 5. Render ke HTML
+    const container = document.getElementById('full-list');
+    if (container) {
+        displayList.sort((a, b) => b.isPresent - a.isPresent || a.name.localeCompare(b.name));
 
-        fullListContainer.innerHTML = displayList.map(s => {
-            let labelStatus, colorStatus, borderColor;
-            if (!s.isPresent) {
-                labelStatus = 'MANGKIR';
-                colorStatus = 'text-slate-500 bg-slate-800/30';
-                borderColor = 'border-slate-800';
-            } else {
-                labelStatus = s.late ? 'TERLAMBAT' : 'TEPAT';
-                colorStatus = s.late ? 'text-red-400 bg-red-400/10' : 'text-emerald-400 bg-emerald-400/10';
-                borderColor = s.late ? 'border-red-500' : 'border-emerald-500';
-            }
-
+        container.innerHTML = displayList.map(s => {
+            const labelStatus = !s.isPresent ? 'MANGKIR' : (s.late ? 'TERLAMBAT' : 'TEPAT');
+            const colorStatus = !s.isPresent ? 'text-slate-500 bg-slate-800/30' : (s.late ? 'text-red-400 bg-red-400/10' : 'text-emerald-400 bg-emerald-400/10');
+            const borderCol = !s.isPresent ? 'border-slate-800' : (s.late ? 'border-red-500' : 'border-emerald-500');
             const colorPulang = (s.pukul_pulang && s.pukul_pulang !== '--:--') ? 'text-blue-400 bg-blue-400/10' : 'text-slate-600 bg-slate-800/50';
 
             return `
-                <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${borderColor} mb-2 transition-all">
+                <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${borderCol} mb-2">
                     <div class="flex-1 min-w-0 pr-2">
                         <p class="text-[10px] font-black text-white uppercase truncate">${s.name}</p>
                         <p class="text-[8px] font-bold text-slate-500 uppercase truncate">${s.class} | ${labelStatus}</p>
@@ -980,13 +1010,11 @@ function updateDashboard() {
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-black ${colorPulang}">${s.pukul_pulang}</span>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('') || '<p class="text-center text-[10px] text-slate-500 py-4 italic">Siswa tidak ditemukan.</p>';
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
-
 function renderRecent() {
     const today = new Date().toLocaleDateString('id-ID');
     const daily = attendanceData.filter(e => e.date === today);
@@ -1125,28 +1153,23 @@ function startLiveSync() {
     if (window.db && window.fbRef && window.fbOnValue) {
         const dbRef = window.fbRef(window.db, `absensi/${datePath}`);
         
-        // Variabel penampung timer biar gak render terus-menerus
-        let syncTimer;
-
         window.fbOnValue(dbRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                // 1. Update data di memori & storage tetep harus cepet
-                attendanceData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
-                
-                // 2. LOGIKA ANTI-MACET:
-                // Kita tunda render UI selama 300ms. 
-                // Kalau ada anak lain scan dalam rentang waktu itu, timer direset lagi.
-                // Jadi render dashboard cuma jalan SATU KALI setelah rentetan scan beres.
-                clearTimeout(syncTimer);
-                syncTimer = setTimeout(() => {
-                    updateMiniStats();
-                    updateDashboard();
-                    renderRecent();
-                    console.log("Cloud Sync: Dashboard Updated Safely");
-                }, 300); 
-            }
+            // Maksa update variabel global
+            attendanceData = data ? Object.keys(data).map(key => ({ 
+                id: key, 
+                ...data[key] 
+            })) : [];
+            
+            // Simpan cadangan
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
+            
+            // LANGSUNG UPDATE UI TANPA TUNDA
+            updateMiniStats();
+            updateDashboard();
+            if (typeof renderRecent === 'function') renderRecent();
+            
+            console.log("Data Baru Diterima:", attendanceData.length);
         });
     }
 }
