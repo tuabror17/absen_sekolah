@@ -701,11 +701,27 @@ window.switchView = function(view) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
+let currentFilter = 'daily'; // Default awal
+
 window.setFilter = function(type) {
     currentFilter = type;
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // 1. Update Tampilan Tombol (Biar lo tau mana yang lagi dipilih)
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        // Hapus kelas aktif dari semua tombol
+        btn.classList.remove('active', 'bg-indigo-500', 'text-white', 'border-indigo-500');
+        btn.classList.add('text-slate-400', 'border-white/10');
+    });
+    
     const targetBtn = document.getElementById(`f-${type}`);
-    if (targetBtn) targetBtn.classList.add('active');
+    if (targetBtn) {
+        // Kasih warna indigo ke tombol yang diklik
+        targetBtn.classList.add('active', 'bg-indigo-500', 'text-white', 'border-indigo-500');
+        targetBtn.classList.remove('text-slate-400', 'border-white/10');
+    }
+    
+    // 2. Refresh data di dashboard sesuai filter & query pencarian
+    console.log("Filter berubah ke:", type);
     updateDashboard();
 };
 
@@ -855,7 +871,6 @@ function updateDashboard() {
     const filter = typeof currentFilter !== 'undefined' ? currentFilter : 'daily';
     const searchQuery = document.getElementById('search-name') ? document.getElementById('search-name').value.toLowerCase().trim() : '';
     
-    // 1. Ambil data yang sudah absen berdasarkan filter waktu
     let presentData = [];
     if (filter === 'daily') {
         presentData = attendanceData.filter(e => e.date === todayStr);
@@ -867,28 +882,32 @@ function updateDashboard() {
         presentData = attendanceData.filter(e => e.timestamp >= oneMonthAgo);
     }
 
-    // 2. Gabungkan SEMUA SISWA dengan status absennya (Hanya untuk filter harian biar gak berat)
     let displayList = [];
     if (filter === 'daily') {
         displayList = siswa.map(s => {
-            // Cari apakah siswa ini ada di data yang sudah absen hari ini
-            const record = presentData.find(p => p.id.toString().replace(/^0+/, '') === s.id.toString().replace(/^0+/, ''));
+            const studentId = s.id.toString().replace(/^0+/, '');
+            const record = presentData.find(p => p.id.toString().replace(/^0+/, '') === studentId);
             return {
-                name: s.nama,
+                name: s.nama || s.name,
                 id: s.id,
-                class: s.class,
+                // KOREKSI DISINI: Cek s.kelas dulu baru s.class
+                class: s.kelas || s.class || 'Tanpa Kelas', 
                 time: record ? record.time : '--:--',
-                pukul_pulang: record ? record.pukul_pulang : '--:--',
-                late: record ? record.late : false,
+                pukul_pulang: record ? (record.pukul_pulang || '--:--') : '--:--',
+                late: record ? (record.late === true) : null,
                 isPresent: !!record
             };
         });
     } else {
-        // Untuk mingguan/bulanan, tampilkan yang absen saja agar tidak overload
-        displayList = presentData.map(p => ({ ...p, isPresent: true }));
+        displayList = presentData.map(p => ({ 
+            ...p, 
+            name: p.name || p.nama || 'Siswa',
+            class: p.class || p.kelas || '-',
+            isPresent: true,
+            late: p.late === true
+        }));
     }
 
-    // 3. FILTER PENCARIAN (Cari ke seluruh displayList)
     if (searchQuery) {
         displayList = displayList.filter(item => {
             const n = item.name ? item.name.toLowerCase() : "";
@@ -898,48 +917,54 @@ function updateDashboard() {
         });
     }
 
-    // 4. UPDATE STATISTIK (Tetap berdasarkan data asli)
-    const hadirCount = presentData.filter(e => !e.late).length;
-    const telatCount = presentData.filter(e => e.late).length;
-    const mangkirCount = siswa.length - presentData.length;
-
-    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = hadirCount;
-    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = telatCount;
+    // UPDATE STATISTIK
+    const dailyPresent = attendanceData.filter(e => e.date === todayStr);
+    if(document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = dailyPresent.filter(e => !e.late).length;
+    if(document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = dailyPresent.filter(e => e.late).length;
+    const mangkirCount = siswa.length - dailyPresent.length;
     if(document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = (mangkirCount < 0 ? 0 : mangkirCount);
 
-    // 5. RENDER KE LAYAR
     const fullListContainer = document.getElementById('full-list');
     if (fullListContainer) {
-        // Urutkan: Yang sudah hadir di atas, sisanya di bawah
-        displayList.sort((a, b) => b.isPresent - a.isPresent);
+        displayList.sort((a, b) => {
+            if (a.isPresent !== b.isPresent) return b.isPresent - a.isPresent;
+            return a.name.localeCompare(b.name);
+        });
 
         fullListContainer.innerHTML = displayList.map(s => {
-            const labelStatus = !s.isPresent ? 'MANGKIR' : (s.late ? 'TERLAMBAT' : 'TEPAT');
-            const colorStatus = !s.isPresent ? 'text-slate-500 bg-slate-800/30' : (s.late ? 'text-red-400 bg-red-400/10' : 'text-emerald-400 bg-emerald-400/10');
-            const borderColor = !s.isPresent ? 'border-slate-800' : (s.late ? 'border-red-500' : 'border-emerald-500');
+            let labelStatus, colorStatus, borderColor;
+            if (!s.isPresent) {
+                labelStatus = 'MANGKIR';
+                colorStatus = 'text-slate-500 bg-slate-800/30';
+                borderColor = 'border-slate-800';
+            } else {
+                labelStatus = s.late ? 'TERLAMBAT' : 'TEPAT';
+                colorStatus = s.late ? 'text-red-400 bg-red-400/10' : 'text-emerald-400 bg-emerald-400/10';
+                borderColor = s.late ? 'border-red-500' : 'border-emerald-500';
+            }
+
             const colorPulang = (s.pukul_pulang && s.pukul_pulang !== '--:--') ? 'text-blue-400 bg-blue-400/10' : 'text-slate-600 bg-slate-800/50';
 
             return `
                 <div class="flex items-center justify-between p-3 glass rounded-2xl border-l-4 ${borderColor} mb-2 transition-all">
                     <div class="flex-1 min-w-0 pr-2">
-                        <p class="text-[9px] font-black text-white uppercase truncate">${s.name}</p>
-                        <p class="text-[7px] font-bold text-slate-500 uppercase truncate">${s.class} | ${labelStatus}</p>
+                        <p class="text-[10px] font-black text-white uppercase truncate">${s.name}</p>
+                        <p class="text-[8px] font-bold text-slate-500 uppercase truncate">${s.class} | ${labelStatus}</p>
                     </div>
                     <div class="flex gap-2 shrink-0">
                         <div class="flex flex-col items-center">
-                            <span class="text-[5px] font-bold text-slate-500 uppercase mb-0.5">Masuk</span>
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-black ${colorStatus}">${s.time}</span>
+                            <span class="text-[6px] font-bold text-slate-500 uppercase mb-0.5">Masuk</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black ${colorStatus}">${s.time}</span>
                         </div>
                         <div class="flex flex-col items-center">
-                            <span class="text-[5px] font-bold text-slate-500 uppercase mb-0.5">Pulang</span>
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-black ${colorPulang}">${s.pukul_pulang}</span>
+                            <span class="text-[6px] font-bold text-slate-500 uppercase mb-0.5">Pulang</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black ${colorPulang}">${s.pukul_pulang}</span>
                         </div>
                     </div>
                 </div>
             `;
         }).join('') || '<p class="text-center text-[10px] text-slate-500 py-4 italic">Siswa tidak ditemukan.</p>';
     }
-    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
