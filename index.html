@@ -1105,15 +1105,28 @@ function startLiveSync() {
     const datePath = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
     if (window.db && window.fbRef && window.fbOnValue) {
         const dbRef = window.fbRef(window.db, `absensi/${datePath}`);
+        
+        // Variabel penampung timer biar gak render terus-menerus
+        let syncTimer;
+
         window.fbOnValue(dbRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // 1. Update data di memori & storage tetep harus cepet
                 attendanceData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
                 localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(attendanceData));
-                updateMiniStats();
-                updateDashboard();
-                renderRecent();
-                console.log("Cloud Sync Active");
+                
+                // 2. LOGIKA ANTI-MACET:
+                // Kita tunda render UI selama 300ms. 
+                // Kalau ada anak lain scan dalam rentang waktu itu, timer direset lagi.
+                // Jadi render dashboard cuma jalan SATU KALI setelah rentetan scan beres.
+                clearTimeout(syncTimer);
+                syncTimer = setTimeout(() => {
+                    updateMiniStats();
+                    updateDashboard();
+                    renderRecent();
+                    console.log("Cloud Sync: Dashboard Updated Safely");
+                }, 300); 
             }
         });
     }
