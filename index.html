@@ -785,15 +785,15 @@ function onScanSuccess(decodedText) {
     const jam = now.getHours();
     const menit = now.getMinutes();
 
-    // 1. Tentukan Mode: Pulang atau Masuk?
+    // 1. LOGIKA JAM PULANG (Jumat: 10:45 | Biasa: 14:25)
     let isWaktuPulang = (hari === 5 && (jam >= 11 || (jam === 10 && menit >= 45))) || 
                          (hari !== 5 && (jam > 14 || (jam === 14 && menit >= 25)));
 
-    const isWaktuMasuk = (jam >= 6 && jam < 10);
+    // 2. LOGIKA JAM MASUK (Buka dari jam 6 pagi sampai jam 10 pagi)
+    const isWaktuMasuk = (jam >= 6 && jam < 10 && !isWaktuPulang);
 
     const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
 
-    // 2. Validasi Double Absen
     if (isWaktuPulang) {
         const sudahPulang = attendanceData.find(e => e.id.toString() === cleanId + "_OUT" && e.date === today);
         if (sudahPulang) {
@@ -813,30 +813,8 @@ function onScanSuccess(decodedText) {
         return;
     }
 
-    // 3. Eksekusi Simpan dengan Mode yang Benar
     isProcessing = true;
     processAttendance(student, timeStr, today, existing, isWaktuPulang);
-}
-// FUNGSI DISPLAY BARU (WARNA DINAMIS)
-function showResult(name, status, bgColor) {
-    const layer = document.getElementById('cooldown-layer');
-    const statusBox = document.getElementById('cooldown-box'); // Pastikan ID ini ada di HTML lo
-    
-    if (layer) {
-        document.getElementById('cooldown-name').innerText = name;
-        document.getElementById('cooldown-status').innerText = status;
-        
-        // Ganti warna background secara dinamis
-        // Hapus dulu class warna yang mungkin nempel sebelumnya
-        layer.classList.remove('bg-emerald-500', 'bg-red-600', 'bg-amber-500', 'bg-indigo-600');
-        layer.classList.add(bgColor);
-        
-        layer.classList.remove('hidden');
-        setTimeout(() => {
-            layer.classList.add('hidden');
-            isProcessing = false; // Reset proteksi scan
-        }, 3000);
-    }
 }
 
 function processAttendance(student, timeStr, today, existing, isWaktuPulang) {
@@ -846,7 +824,7 @@ function processAttendance(student, timeStr, today, existing, isWaktuPulang) {
     let payload;
 
     if (isWaktuPulang) {
-        // MODE PULANG: Paksa Late jadi FALSE
+        // --- MODE PULANG ---
         payload = {
             id: cleanId + "_OUT",
             student_id: cleanId,
@@ -855,12 +833,14 @@ function processAttendance(student, timeStr, today, existing, isWaktuPulang) {
             date: today,
             timestamp: Date.now(),
             pukul_pulang: timeStr,
-            late: false, // Pulang nggak boleh telat
+            late: false, // Pulang HARUS False biar nggak Merah
             type: "OUT"
         };
     } else {
-        // MODE MASUK: Cek Telat berdasarkan jam operasional
-        const jamTelat = (typeof CONFIG !== 'undefined') ? CONFIG.LATE_TIME : "07:15";
+        // --- MODE MASUK ---
+        // BATAS TELAT: 07:40
+        const isLate = timeStr > "07:40:00"; 
+        
         payload = {
             id: cleanId,
             name: namaSiswa,
@@ -868,30 +848,26 @@ function processAttendance(student, timeStr, today, existing, isWaktuPulang) {
             date: today,
             timestamp: Date.now(),
             time: timeStr,
-            late: timeStr > jamTelat, 
+            late: isLate,
             pukul_pulang: "--:--",
             type: "IN"
         };
     }
 
-    // Kirim ke Database
     if (window.sendToFirebase) {
         window.sendToFirebase(payload);
     }
 
-    // Suara Berhasil
     document.getElementById('snd-success')?.play();
     
-    // Tampilan di Layar
     if (isWaktuPulang) {
-        showResult(namaSiswa, "PULANG BERHASIL", "bg-blue-600"); // Warna Biru buat Pulang
+        showResult(namaSiswa, "PULANG BERHASIL", "bg-blue-600");
     } else {
         const msg = payload.late ? "TERLAMBAT" : "BERHASIL MASUK";
         const color = payload.late ? "bg-red-600" : "bg-emerald-500";
         showResult(namaSiswa, msg, color);
     }
 
-    // Buka kunci scanner setelah 1.5 detik
     setTimeout(() => { isProcessing = false; }, 1500);
 }
 // ==========================================
