@@ -781,53 +781,41 @@ function onScanSuccess(decodedText) {
     const now = new Date();
     const today = now.toLocaleDateString('id-ID');
     const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
-    const hari = now.getDay(); // 5 = Jumat
+    const hari = now.getDay(); 
     const jam = now.getHours();
     const menit = now.getMinutes();
 
-    // --- LOGIKA JAM PULANG DINAMIS ---
-    let isWaktuPulang = false;
-    if (hari === 5) {
-        // Hari Jumat: Buka absen pulang jam 10:45 ke atas (biar longgar)
-        isWaktuPulang = (jam >= 10 && menit >= 45) || (jam >= 11);
-    } else {
-        // Hari Biasa: Jam 14:25 ke atas
-        isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
-    }
+    // 1. Tentukan Mode: Pulang atau Masuk?
+    let isWaktuPulang = (hari === 5 && (jam >= 11 || (jam === 10 && menit >= 45))) || 
+                         (hari !== 5 && (jam > 14 || (jam === 14 && menit >= 25)));
 
-    // --- LOGIKA JAM MASUK (06:00 - 10:00) ---
-    // Kita perlebar dikit jam masuknya biar gak nolak kalau ada yang telat parah
     const isWaktuMasuk = (jam >= 6 && jam < 10);
 
     const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
 
+    // 2. Validasi Double Absen
     if (isWaktuPulang) {
-        // CEK SUDAH PULANG BELUM? (Cek ID_OUT di database)
         const sudahPulang = attendanceData.find(e => e.id.toString() === cleanId + "_OUT" && e.date === today);
-        
         if (sudahPulang) {
             document.getElementById('snd-warning')?.play();
             showResult(student.nama || student.name, "SUDAH ABSEN PULANG", "bg-red-600");
             return;
         }
-    } 
-    else if (isWaktuMasuk) {
+    } else if (isWaktuMasuk) {
         if (existing) {
             document.getElementById('snd-warning')?.play();
             showResult(student.nama || student.name, "SUDAH ABSEN MASUK", "bg-red-600");
             return;
         }
-    } 
-    else {
-        // Jika di luar jam masuk dan belum masuk jam pulang
+    } else {
         document.getElementById('snd-warning')?.play();
         showResult(student.nama || student.name, "BUKAN JAM ABSEN", "bg-amber-500");
         return;
     }
 
-    // Eksekusi Simpan
+    // 3. Eksekusi Simpan dengan Mode yang Benar
     isProcessing = true;
-    processAttendance(student, timeStr, today, existing);
+    processAttendance(student, timeStr, today, existing, isWaktuPulang);
 }
 // FUNGSI DISPLAY BARU (WARNA DINAMIS)
 function showResult(name, status, bgColor) {
@@ -851,39 +839,28 @@ function showResult(name, status, bgColor) {
     }
 }
 
-function processAttendance(student, timeStr, today, existing) {
-    if (!student) {
-        isProcessing = false;
-        return;
-    }
-
-    const now = new Date();
-    const jam = now.getHours();
-    const menit = now.getMinutes();
-    
-    // Tentukan ini jam pulang (Jam 14:25 ke atas)
-    const isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
+function processAttendance(student, timeStr, today, existing, isWaktuPulang) {
     const namaSiswa = student.nama || student.name || "Siswa";
     const cleanId = student.id.toString().replace(/^0+/, '');
-
+    
     let payload;
-    let customId = cleanId; // ID default buat masuk
 
     if (isWaktuPulang) {
-        // --- BUAT DATA BARU KHUSUS PULANG ---
-        customId = cleanId + "_OUT"; // Kita kasih penanda biar gak nimpa data pagi
+        // MODE PULANG: Paksa Late jadi FALSE
         payload = {
-            id: customId,
-            student_id: cleanId, // Tetep simpan ID asli buat relasi
+            id: cleanId + "_OUT",
+            student_id: cleanId,
             name: namaSiswa,
             class: student.kelas || student.class || "-",
             date: today,
             timestamp: Date.now(),
             pukul_pulang: timeStr,
-            type: "OUT" // Penanda bahwa ini data pulang
+            late: false, // Pulang nggak boleh telat
+            type: "OUT"
         };
     } else {
-        // --- BUAT DATA BARU KHUSUS MASUK ---
+        // MODE MASUK: Cek Telat berdasarkan jam operasional
+        const jamTelat = (typeof CONFIG !== 'undefined') ? CONFIG.LATE_TIME : "07:15";
         payload = {
             id: cleanId,
             name: namaSiswa,
@@ -891,26 +868,30 @@ function processAttendance(student, timeStr, today, existing) {
             date: today,
             timestamp: Date.now(),
             time: timeStr,
-            late: timeStr > CONFIG.LATE_TIME,
-            type: "IN" // Penanda bahwa ini data masuk
+            late: timeStr > jamTelat, 
+            pukul_pulang: "--:--",
+            type: "IN"
         };
     }
 
-    // KIRIM KE FIREBASE
-    // Kita pake customId biar record-nya jadi dua baris di Firebase
+    // Kirim ke Database
     if (window.sendToFirebase) {
-        // Pastikan di sendToFirebase lo pake ID dari payload ini
         window.sendToFirebase(payload);
     }
 
-    // Feedback Visual
+    // Suara Berhasil
     document.getElementById('snd-success')?.play();
+    
+    // Tampilan di Layar
     if (isWaktuPulang) {
-        showResult(namaSiswa, "PULANG BERHASIL", "bg-blue-600");
+        showResult(namaSiswa, "PULANG BERHASIL", "bg-blue-600"); // Warna Biru buat Pulang
     } else {
-        showResult(namaSiswa, payload.late ? "TERLAMBAT" : "BERHASIL MASUK", payload.late ? "bg-red-600" : "bg-emerald-500");
+        const msg = payload.late ? "TERLAMBAT" : "BERHASIL MASUK";
+        const color = payload.late ? "bg-red-600" : "bg-emerald-500";
+        showResult(namaSiswa, msg, color);
     }
 
+    // Buka kunci scanner setelah 1.5 detik
     setTimeout(() => { isProcessing = false; }, 1500);
 }
 // ==========================================
