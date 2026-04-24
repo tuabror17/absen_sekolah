@@ -781,41 +781,47 @@ function onScanSuccess(decodedText) {
     const now = new Date();
     const today = now.toLocaleDateString('id-ID');
     const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
-    
-    // Logika Jam & Menit biar gak kaku
+    const hari = now.getDay(); // 5 = Jumat
     const jam = now.getHours();
     const menit = now.getMinutes();
 
-    // 1. CEK APAKAH SUDAH JAM PULANG (Jam 14:25 ke atas)
-    // Kita buka 5 menit lebih awal dari 14:30 buat toleransi
-    const isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
+    // --- LOGIKA JAM PULANG DINAMIS ---
+    let isWaktuPulang = false;
+    if (hari === 5) {
+        // Hari Jumat: Buka absen pulang jam 10:45 ke atas (biar longgar)
+        isWaktuPulang = (jam >= 10 && menit >= 45) || (jam >= 11);
+    } else {
+        // Hari Biasa: Jam 14:25 ke atas
+        isWaktuPulang = (jam > 14) || (jam === 14 && menit >= 25);
+    }
 
-    // 2. CEK APAKAH JAM MASUK (Jam 06:00 - 09:00)
-    const isWaktuMasuk = (jam >= 6 && jam < 9);
+    // --- LOGIKA JAM MASUK (06:00 - 10:00) ---
+    // Kita perlebar dikit jam masuknya biar gak nolak kalau ada yang telat parah
+    const isWaktuMasuk = (jam >= 6 && jam < 10);
 
     const existing = attendanceData.find(e => e.id.toString().replace(/^0+/, '') === cleanId && e.date === today);
 
     if (isWaktuPulang) {
-        // PROSES PULANG
-        if (existing && existing.pukul_pulang && existing.pukul_pulang !== "--" && existing.pukul_pulang !== "--:--") {
+        // CEK SUDAH PULANG BELUM? (Cek ID_OUT di database)
+        const sudahPulang = attendanceData.find(e => e.id.toString() === cleanId + "_OUT" && e.date === today);
+        
+        if (sudahPulang) {
             document.getElementById('snd-warning')?.play();
-            showResult(student.nama, "SUDAH ABSEN PULANG", "bg-red-600");
+            showResult(student.nama || student.name, "SUDAH ABSEN PULANG", "bg-red-600");
             return;
         }
-        // Jika belum ada data masuk (langsung scan pulang), kita tetep bolehin
     } 
     else if (isWaktuMasuk) {
-        // PROSES MASUK
         if (existing) {
             document.getElementById('snd-warning')?.play();
-            showResult(student.nama, "SUDAH ABSEN MASUK", "bg-red-600");
+            showResult(student.nama || student.name, "SUDAH ABSEN MASUK", "bg-red-600");
             return;
         }
     } 
     else {
-        // DI LUAR JAM OPERASIONAL
+        // Jika di luar jam masuk dan belum masuk jam pulang
         document.getElementById('snd-warning')?.play();
-        showResult(student.nama, "BUKAN JAM ABSEN", "bg-amber-500");
+        showResult(student.nama || student.name, "BUKAN JAM ABSEN", "bg-amber-500");
         return;
     }
 
@@ -823,7 +829,6 @@ function onScanSuccess(decodedText) {
     isProcessing = true;
     processAttendance(student, timeStr, today, existing);
 }
-
 // FUNGSI DISPLAY BARU (WARNA DINAMIS)
 function showResult(name, status, bgColor) {
     const layer = document.getElementById('cooldown-layer');
