@@ -1,4 +1,4 @@
-<html lang="id">
+﻿<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -106,7 +106,7 @@
     <div class="w-full max-w-xl pb-24">
         <header class="flex items-center justify-between mb-8 w-full">
             <div class="flex items-center gap-4">
-                <img src="https://lh3.googleusercontent.com/d/1KyFtChwYslz-KjbArLBgBFqClIkw5yg9" alt="Logo" class="w-12 h-12 object-contain">
+                <img src="logo.png" alt="Logo" class="w-12 h-12 object-contain">
                 <div>
                     <h1 class="text-xl font-black tracking-tight text-white leading-none">D-SIGN</h1>
                     <p class="text-[9px] font-bold text-slate-550 uppercase tracking-widest mt-1">Digital Santri Integrated Generation Network</p>
@@ -162,28 +162,12 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-3 gap-3 opacity-0 pointer-events-none h-0 overflow-hidden">
     <div class="glass p-5 rounded-3xl">
         <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Hadir</p>
         <div class="flex items-center gap-2">
             <h2 id="mini-hadir" class="text-2xl font-black text-white">0</h2>
             <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
-        </div>
-    </div>
-
-    <div class="glass p-5 rounded-3xl">
-        <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Telat</p>
-        <div class="flex items-center gap-2">
-            <h2 id="mini-telat" class="text-2xl font-black text-red-400">0</h2>
-            <i data-lucide="clock" class="w-4 h-4 text-red-500"></i>
-        </div>
-    </div>
-
-    <div class="glass p-5 rounded-3xl">
-        <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Mangkir</p>
-        <div class="flex items-center gap-2">
-            <h2 id="mini-mangkir" class="text-2xl font-black text-orange-400">0</h2>
-            <i data-lucide="user-x" class="w-4 h-4 text-orange-500"></i>
         </div>
     </div>
 </div>
@@ -206,10 +190,10 @@
                 <i data-lucide="calendar" class="w-5 h-5"></i>
                 <span class="text-[10px] font-bold">HARIAN</span>
             </button>
-            <button onclick="downloadRekap()" title="Download Rekap" class="p-2 glass rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-2">
-                <i data-lucide="users" class="w-5 h-5"></i>
-                <span class="text-[10px] font-bold">REKAP</span>
-            </button>
+            <button onclick="downloadBulanan()" title="Download Rekap Bulanan" class="p-2 glass rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center gap-2">
+    <i data-lucide="users" class="w-5 h-5"></i>
+    <span class="text-[10px] font-bold">REKAP</span>
+</button>
             <button onclick="clearList()" class="p-2 glass rounded-xl text-red-400 hover:bg-red-500/10 transition-colors ml-2">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>
@@ -282,7 +266,7 @@
 
    <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, push, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, push, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = { 
         apiKey: "AIzaSyAqfFiZ4uPamuT56tZC84X2TQn9unJFavQ", 
@@ -312,12 +296,11 @@
         if (typeof window.loadAttendanceData === 'function') {
             window.loadAttendanceData(getTodayStr().f1);
         }
-   window.sendToFirebase = function(data) {
-    // 1. KUNCI TOTAL: Gunakan format f1 (DD-MM-YYYY) agar folder di Firebase seragam
-    const dates = getTodayStr(); 
-    const todayPath = dates.f1;
+
+ window.sendToFirebase = function(data) {
+    // Karena getTodayStr() lo sekarang cuma return string, jangan pakai .f1
+    const todayPath = getTodayStr(); 
     
-    // 2. Pastikan ID yang dipakai konsisten
     const sId = data.student_id || data.id;
     
     if (!sId) {
@@ -325,13 +308,14 @@
         return;
     }
 
-    // 3. Pastikan data tanggal di dalam objek juga pakai f1
+    // --- BERESIN DI SINI ---
+    // Jangan nimpa data.waktu lagi karena jam sudah ada di data.pukul_masuk
+    // Cukup pastikan date-nya benar
     data.date = todayPath;
+    // -----------------------
 
-    // 4. Tembak ke path yang bener (absensi/DD-MM-YYYY/ID)
     const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${sId}`);
     
-    // 5. Update ke Cloud
     window.fbUpdate(studentRef, data)
         .then(() => {
             console.log(`%c [SUCCESS] %c ID: ${sId} Sinkron ke Cloud!`, 
@@ -339,9 +323,7 @@
                         'color: #10b981;');
         })
         .catch((e) => {
-            console.error("Waduh Broo, Firebase Error:", e);
-            const backupKey = `offline_${sId}_${Date.now()}`;
-            localStorage.setItem(backupKey, JSON.stringify(data));
+            console.error("Gagal sinkron ke Firebase:", e);
         });
 };
 
@@ -664,13 +646,11 @@ let currentFilter = 'daily';
 function getTodayStr() {
     const now = new Date();
     const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0'); // Ini yang bikin jadi "04"
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
     const yyyy = now.getFullYear();
     
-    return {
-        f1: `${dd}-${mm}-${yyyy}`, // Hasil: 27-04-2026
-        f2: `${dd}-${now.getMonth() + 1}-${yyyy}` // Hasil: 27-4-2026 (buat cadangan)
-    };
+    // Langsung return satu format string saja
+    return `${dd}-${mm}-${yyyy}`; 
 }
 
 window.setFilter = function(filterType) {
@@ -758,51 +738,64 @@ window.onScanSuccess = function(decodedText) {
     if (isProcessing) return;
 
     const now = Date.now();
+    // Normalisasi ID: Hapus spasi dan nol di depan
     const cleanId = decodedText.trim().replace(/^0+/, '');
 
-    // PROTEKSI 1: Jeda Waktu
+    // PROTEKSI 1: Anti-Spam (Jeda 5 detik)
     if (cleanId === lastScannedId && (now - lastScannedTime) < 5000) {
         console.warn("Sabar Broo, baru aja discan!");
         return;
     }
 
-    const student = (typeof siswa !== 'undefined') ? siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId) : null;
-    if (!student) return;
-
-    const dates = getTodayStr();
-    const todayForCheck = dates.f1; // Kunci di f1 (DD-MM-YYYY)
-    const timeStr = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    // 1. CARI DATA SISWA
+    const student = (typeof siswa !== 'undefined') ? 
+        siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId) : null;
     
-    // PROTEKSI 2: Cek di Database (Hanya cari yang format f1)
+    if (!student) {
+        console.error("Siswa tidak terdaftar, Jon!");
+        return;
+    }
+
+    // 2. KUNCI FORMAT TANGGAL (FIXED)
+    // Karena getTodayStr() lo sekarang return string, langsung pakai saja.
+    const todayForCheck = getTodayStr(); 
+    const timeStr = new Date().toTimeString().split(' ')[0].substring(0, 5); 
+    
+    // 3. PROTEKSI 2: Cek memori lokal
     const existing = attendanceData.find(e => 
         e.student_id.toString().replace(/^0+/, '') === cleanId && 
-        e.date === todayForCheck // Langsung tembak ke f1
+        e.date === todayForCheck
     );
 
+    // 4. PENENTUAN SESI (Masuk vs Pulang)
     const isMorningTime = timeStr >= CONFIG.START_TIME && timeStr <= CONFIG.END_TIME;
     const isExitTime = timeStr >= CONFIG.EXIT_START && timeStr <= CONFIG.EXIT_END;
 
     if (isExitTime) {
+        // Logika Absen Pulang
         if (existing?.pukul_pulang && existing.pukul_pulang !== "--:--") {
             playSnd('snd-warning');
             showResult(student.nama, "SUDAH ABSEN PULANG!", "bg-red-600");
             return;
         }
+        
         lastScannedId = cleanId;
         lastScannedTime = now;
         executeProcess(student, todayForCheck, timeStr, existing, true);
-    } 
-    else if (isMorningTime) {
-        if (existing) {
+        
+    } else if (isMorningTime) {
+        // Logika Absen Masuk
+        if (existing && (existing.pukul_masuk !== "--:--" && existing.pukul_masuk)) {
             playSnd('snd-warning');
-            showResult(student.nama, "SUDAH ABSEN MASUK!", "bg-red-600");
+            showResult(student.nama, "SUDAH ABSEN MASUK!", "bg-blue-600");
             return;
         }
+        
         lastScannedId = cleanId;
         lastScannedTime = now;
         executeProcess(student, todayForCheck, timeStr, existing, false);
-    } 
-    else {
+        
+    } else {
         playSnd('snd-warning');
         showResult(student.nama, "SISTEM TERTUTUP", "bg-amber-500");
     }
@@ -812,20 +805,21 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
     const cleanId = student.id.toString().replace(/^0+/, '');
     
-    // 1. KUNCI: Pastikan pakai f1 (DD-MM-YYYY)
-    const tanggalFix = (typeof date === 'object') ? date.f1 : date;
+    // 1. KUNCI: Karena getTodayStr lo string, pakai langsung
+    const tanggalFix = date;
 
-    // 2. RACIK DATA (Payload)
-    let payload = existing ? { ...existing } : {
+    // 2. RACIK DATA (Payload) - Sesuaikan field dengan JSON Firebase lo
+   let payload = existing ? { ...existing } : {
         student_id: cleanId,
-        name: student.nama,
-        class: student.kelas || student.class || "-",
+        name: student.nama,          
+        class: student.kelas || student.class || "-", 
         date: tanggalFix,
         timestamp: Date.now(),
-        pukul_masuk: "--:--", 
-        pukul_pulang: "--:--",
+        // DISINI KUNCINYA: Jika bukan pulang, langsung isi jamnya
+        pukul_masuk: !isPulang ? time : "--:--", 
+        pukul_pulang: isPulang ? time : "--:--",
         status_masuk: "HADIR",
-        status_pulang: "BELUM PULANG",
+        status_pulang: isPulang ? "PULANG" : "BELUM PULANG",
         late: false
     };
 
@@ -836,13 +830,12 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
     } else {
         payload.pukul_masuk = time;
         payload.status_masuk = "HADIR";
-        // Cek keterlambatan jika CONFIG tersedia
         if (typeof CONFIG !== 'undefined' && CONFIG.LATE_TIME) {
             payload.late = time > CONFIG.LATE_TIME;
         }
     }
 
-    // 4. UPDATE MEMORI LOKAL (Penting biar UI langsung berubah)
+    // 4. UPDATE MEMORI LOKAL
     if (existing) {
         const idx = attendanceData.findIndex(e => 
             e.student_id.toString().replace(/^0+/, '') === cleanId && 
@@ -858,26 +851,17 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
         window.sendToFirebase(payload);
     }
 
-    // 6. FEEDBACK VISUAL & SUARA
-    // Pilih suara: kalau telat bunyinya beda
+    // 6. FEEDBACK VISUAL
     const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
     playSnd(soundEffect);
 
-    // Pilih Pesan & Warna
     let msg = isPulang ? "ABSEN PULANG BERHASIL" : "ABSEN MASUK BERHASIL";
     let color = isPulang ? "bg-orange-500" : "bg-emerald-500";
-    
-    if (!isPulang && payload.late) {
-        msg = "TERLAMBAT!";
-        color = "bg-red-600";
-    }
+    if (!isPulang && payload.late) { msg = "TERLAMBAT!"; color = "bg-red-600"; }
     
     showResult(student.nama, msg, color);
 
-    // 7. COOLDOWN (Buka kunci scanner setelah 2 detik)
-    setTimeout(() => { 
-        isProcessing = false; 
-    }, 2000);
+    setTimeout(() => { isProcessing = false; }, 2000);
 };
 
 // ==========================================
@@ -947,23 +931,81 @@ window.switchView = function(view) {
 };
 
 
-window.updateDashboard = function() {
-    const data = window.attendanceData || [];
-    const totalHadir = data.length;
-    
-    // Kita tembak ID yang beneran ada di layar lo
-    const hadirEl = document.getElementById('count-hadir') || document.querySelector('.text-white.text-2xl.font-black') || document.querySelector('[id*="hadir"]');
-    
-    if (hadirEl) {
-        hadirEl.innerText = totalHadir;
+window.renderBelumAbsen = function() {
+    // ID disesuaikan dengan HTML lo: 'absent-list'
+    const container = document.getElementById('absent-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // Ambil list ID yang sudah absen
+    const sudahAbsenIds = (window.attendanceData || []).map(item => 
+        item.student_id.toString().replace(/^0+/, '')
+    );
+
+    // Filter dari data master (array siswa) yang belum ada di list absen
+    const belumAbsen = (typeof siswa !== 'undefined' ? siswa : []).filter(s => {
+        const cleanId = s.id.toString().replace(/^0+/, '');
+        return !sudahAbsenIds.includes(cleanId);
+    });
+
+    if (belumAbsen.length === 0) {
+        container.innerHTML = `<p class="text-center py-4 text-[10px] text-emerald-400 italic">Semua hadir!</p>`;
+        return;
     }
 
-    console.log("Statistik diupdate:", totalHadir);
-    
-    // Langsung panggil render biar list bawahnya ikutan muncul
-    renderSemua(data);
+    // Render daftar nama ke 'absent-list'
+    belumAbsen.forEach((s, index) => {
+        const row = `
+            <div class="flex items-center justify-between p-2 border-b border-white/5 opacity-70">
+                <div class="flex items-center gap-3">
+                    <span class="text-[8px] text-slate-600 font-bold">${index + 1}</span>
+                    <div>
+                        <p class="text-[10px] font-black text-white uppercase">${s.nama}</p>
+                        <p class="text-[7px] font-bold text-slate-500">${s.id} • ${s.kelas}</p>
+                    </div>
+                </div>
+                <span class="text-[7px] font-black text-red-400/50 uppercase italic tracking-widest">Mangkir</span>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', row);
+    });
 };
 
+// 2. FUNGSI UPDATE DASHBOARD (SINKRON DENGAN HTML LO)
+window.updateDashboard = function(dataToRender = null) {
+    const data = window.attendanceData || [];
+    const totalSiswa = (typeof siswa !== 'undefined') ? siswa.length : 258;
+    
+    // 1. HITUNG STATISTIK (Selalu pakai data asli/total)
+    const hadir = data.filter(item => 
+        (item.pukul_masuk && item.pukul_masuk !== "--:--") || 
+        (item.time && item.time !== "--:--")
+    ).length;
+
+    const terlambat = data.filter(item => 
+        item.late === true || item.late === "true"
+    ).length;
+
+    const mangkir = Math.max(0, totalSiswa - hadir);
+
+    // 2. UPDATE ANGKA DI ATAS
+    if (document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = hadir;
+    if (document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = terlambat;
+    if (document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = mangkir;
+    
+    // 3. LOGIKA RENDER (Biar fitur pencarian gak rusak)
+    // Jika ada data hasil pencarian (dataToRender), tampilkan itu. 
+    // Jika tidak ada (normal), tampilkan semua data absen.
+    if (typeof window.renderDatabase === 'function') {
+        window.renderDatabase(dataToRender); 
+    }
+
+    // 4. Render List Belum Absen
+    if (typeof window.renderBelumAbsen === 'function') {
+        window.renderBelumAbsen();
+    }
+};
 
 // 2. FUNGSI PENCARIAN (Udah gue benerin alurnya)
 window.handleSearch = function() {
@@ -1015,9 +1057,9 @@ window.onload = function() {
 };
 
 function startLiveSync() {
+    // Karena getTodayStr() lo sudah return string "DD-MM-YYYY"
     const dates = getTodayStr();
-    // JALUR RESMI: absensi/27-04-2026
-    const path = `absensi/${dates.f1}`; 
+    const path = `absensi/${dates}`; 
 
     if (!window.db || !window.fbRef || !window.fbOnValue) {
         console.log("[SYSTEM] Menunggu Firebase...");
@@ -1042,12 +1084,14 @@ function startLiveSync() {
             });
             console.log("%c [SUCCESS] Data Sinkron! Total: " + window.attendanceData.length, 'color: #10b981; font-weight: bold;');
         } else {
-            console.log("[EMPTY] Jalur " + path + " masih kosong. Belum ada scan masuk, Broo!");
+            console.log("[EMPTY] Jalur " + path + " masih kosong.");
         }
 
-        // Jalankan mesin update tampilan
+        // Jalankan update dashboard
         if (typeof window.updateDashboard === 'function') {
             window.updateDashboard();
+        } else if (typeof window.renderDatabase === 'function') {
+            window.renderDatabase();
         }
     });
 }
@@ -1055,7 +1099,6 @@ function startLiveSync() {
 window.renderDatabase = function(dataToRender = null) {
     const container = document.getElementById('full-list');
     
-    // 1. SATPAM UTAMA: Biar nggak bikin layar gelap kalau elemennya nggak ada
     if (!container) {
         console.warn("Waduh Jon, elemen 'full-list' nggak ketemu!");
         return;
@@ -1063,11 +1106,9 @@ window.renderDatabase = function(dataToRender = null) {
 
     container.innerHTML = ''; 
     
-    // 2. AMBIL DATA
-    let rawData = window.attendanceData || [];
-    let records = dataToRender || (Array.isArray(rawData) ? rawData : Object.values(rawData));
+    const rawData = window.attendanceData || [];
+    const records = dataToRender || (Array.isArray(rawData) ? rawData : Object.values(rawData));
 
-    // 3. CEK KOSONG
     if (records.length === 0) {
         container.innerHTML = `
             <div class="text-center py-10 opacity-50">
@@ -1076,19 +1117,21 @@ window.renderDatabase = function(dataToRender = null) {
         return;
     }
 
-    // 4. URUTKAN (Terbaru di atas)
+    // 1. URUTKAN: Terbaru di atas berdasarkan timestamp
     records.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-    // 5. RENDER BARIS
+    // 2. RENDER BARIS SISWA
     records.forEach((item, index) => {
+        // Logika Status Terlambat
         const isLate = item.late === true || item.late === "true";
         const statusColor = isLate ? 'text-red-400' : 'text-emerald-400';
         const statusText = isLate ? 'TERLAMBAT' : 'TEPAT WAKTU';
         
-        // Sesuai field Firebase lo: name, student_id, class, time
-        const jamMasuk = item.time || "--:--"; 
-        const jamPulang = item.pukul_pulang || "--:--"; 
-        const namaSiswa = item.name || "Siswa";
+        // Pemetaan Field (Sinkronisasi Cloud & Lokal)
+        const jamMasuk = item.pukul_masuk || item.time || item.waktu || "--:--"; 
+        const jamPulang = item.pukul_pulang || item.exit_time || "--:--"; 
+        const namaSiswa = item.name || item.nama || "Siswa"; 
+        const kelasSiswa = item.class || item.kelas || "-";
 
         const row = `
             <div class="glass p-3 rounded-xl border border-white/5 flex items-center justify-between mb-2">
@@ -1099,7 +1142,7 @@ window.renderDatabase = function(dataToRender = null) {
                     <div>
                         <p class="text-[11px] font-black text-white uppercase">${namaSiswa}</p>
                         <p class="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
-                            ${item.student_id || '-'} • ${item.class || '-'}
+                            ${item.student_id || '-'} • ${kelasSiswa}
                         </p>
                     </div>
                 </div>
@@ -1122,76 +1165,110 @@ window.renderDatabase = function(dataToRender = null) {
         container.insertAdjacentHTML('beforeend', row);
     });
 
-    // 6. REFRESH ICON
+    // 3. REFRESH ICON
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
+
+
 window.downloadExcel = function() {
-    // Siapin data (kalau kosong, dataToExport cuma bakal jadi array kosong [])
-    const dataToExport = attendanceData.map((item, index) => ({
-        "No": index + 1,
-        "ID Siswa": item.student_id,
-        "Nama": item.name,
-        "Kelas": item.class,
-        "Tanggal": item.date,
-        "Jam Masuk": item.pukul_masuk,
-        "Status Masuk": item.status_masuk,
-        "Jam Pulang": item.pukul_pulang,
-        "Status Pulang": item.status_pulang,
-        "Keterangan": item.late ? "TERLAMBAT" : "TEPAT WAKTU"
-    }));
+    console.log("Memulai Export Harian...");
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
+    // Ambil data yang lagi nampil di tabel dashboard
+    const dataAktif = window.attendanceData || [];
 
-    const fileName = `Absensi_Darul_Abror_${getTodayStr().f1}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
-    console.log("Download Harian diproses, Jon!");
-};
-
-// 2. Fungsi Download Rekap (Tanpa Alert)
-window.downloadRekap = function() {
-    // 1. Ambil data dari variabel global, kalau kosong coba ambil dari state aplikasi
-    let dataKehadiran = window.attendanceData || [];
-    
-    // Log untuk cek di console (pencet F12 buat liat)
-    console.log("Mencoba download data...", dataKehadiran);
-
-    if (dataKehadiran.length === 0) {
-        alert("Data masih kosong di memori, Jon! Coba refresh atau tunggu sinkron sebentar.");
+    if (dataAktif.length === 0) {
+        alert("Tabel di layar masih kosong, Jon! Tunggu data muncul dulu.");
         return;
     }
 
-    // 2. Mapping data dengan nama field yang udah kita liat di Firebase tadi
-    const dataSiapDownload = dataKehadiran.map(item => {
+    // Mapping biar rapi dan dapet NAMA
+    const dataSiap = dataAktif.map((s, i) => {
         return {
-            "Tanggal": item.date || "--",
-            "Nama Siswa": item.name || "Tanpa Nama",
-            "Kelas": item.class || "-",
-            "Jam Masuk": item.time || "--:--",           // Pakai 'time' sesuai Firebase
-            "Jam Pulang": item.pukul_pulang || "--:--",   // Pakai 'pukul_pulang' sesuai Firebase
-            "Status": (item.late === true || item.late === "true") ? "TERLAMBAT" : "HADIR"
+            "NO": i + 1,
+            "TANGGAL": s.tanggal || s.date || "29-04-2026",
+            "ID SISWA": s.student_id || s.id || "-",
+            "NAMA": (s.nama || s.name || "TANPA NAMA").toUpperCase(),
+            "KELAS": s.kelas || "-",
+            "JAM": s.pukul_masuk || s.time || "--:--",
+            "STATUS": (s.status || "HADIR").toUpperCase()
         };
     });
 
     try {
-        // 3. Proses Excel
-        const worksheet = XLSX.utils.json_to_sheet(dataSiapDownload);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi_Hari_Ini");
-
-        // 4. Kasih nama file unik biar gak ketuker
-        const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-        XLSX.writeFile(workbook, `Rekap_Absensi_Darul_Abror_${tgl}.xlsx`);
-        
-        console.log("Download Berhasil, Jon!");
+        // Panggil mesin cetak (exportToExcel)
+        exportToExcel(dataSiap, `REKAP_HARIAN_DSIGN_${new Date().getTime()}`);
+        alert(`Berhasil download ${dataSiap.length} siswa hari ini!`);
     } catch (err) {
-        console.error("Gagal buat Excel:", err);
-        alert("Waduh, library XLSX nya belum kepasang atau error, Broo!");
+        console.error(err);
+        alert("Gagal cetak Excel! Cek apakah fungsi exportToExcel sudah ada.");
     }
 };
 
+// 2. Fungsi download bulanan (narik semua folder tanggal di Firebase)
+window.downloadBulanan = async function() {
+    console.log("Menarik data bulanan...");
+    try {
+        const snapshot = await get(ref(db, 'absensi'));
+        if (!snapshot.exists()) {
+            alert("Database kosong, Jon!");
+            return;
+        }
+
+        const allData = snapshot.val();
+        let rekapBulanan = [];
+        let no = 1;
+
+        // Loop per Tanggal (Folder: 29-04-2026, dst)
+        Object.keys(allData).sort().forEach(tgl => {
+            const dataHarian = allData[tgl];
+            
+            // Loop per ID Siswa
+            Object.keys(dataHarian).forEach(idSiswa => {
+                const s = dataHarian[idSiswa];
+                
+                // VALIDASI NAMA: Cek 'nama' atau 'name'. Kalau dua-duanya gak ada, baru "TANPA NAMA"
+                const namaSiswa = s.nama || s.name || "TANPA NAMA";
+
+                rekapBulanan.push({
+                    "NO": no++,
+                    "TANGGAL": tgl,
+                    "ID SISWA": idSiswa,
+                    "NAMA": namaSiswa.toUpperCase(),
+                    "KELAS": s.kelas || s.class || "-",
+                    "JAM": s.pukul_masuk || s.time || "--:--",
+                    "STATUS": (s.status || (s.late ? "TERLAMBAT" : "HADIR")).toUpperCase()
+                });
+            });
+        });
+
+        if (rekapBulanan.length === 0) {
+            alert("Data ditemukan, tapi isinya kosong!");
+            return;
+        }
+
+        // Panggil helper buat nyetak (pastiin fungsi exportToExcel sudah ada)
+        exportToExcel(rekapBulanan, `REKAP_BULANAN_DSIGN_${new Date().getTime()}`);
+        alert(`Berhasil download ${rekapBulanan.length} baris data!`);
+
+    } catch (err) {
+        console.error("Error Bulanan:", err);
+        alert("Gagal tarik data bulanan! Cek Console.");
+    }
+};
+// 3. Mesin Cetak Excel (Biar gak acak-acakan)
+function exportToExcel(data, fileName) {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    
+    // Set lebar kolom biar rapi
+    ws['!cols'] = [
+        {wch: 5}, {wch: 15}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 15}
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap");
+    XLSX.writeFile(wb, `${fileName}.xlsx`);
+}
 window.syncFromFirebase = function(tanggal) {
     console.log("Menghubungkan ke Firebase untuk tanggal:", tanggal);
     const dbRef = window.fbRef(window.db, `absensi/${tanggal}`);
@@ -1273,18 +1350,22 @@ window.loadAttendanceData = function(tanggal) {
 };
 
 window.clearList = function() {
-    console.log("Tombol Clear dipencet, Jon! Membersihkan...");
-    
-    // 1. Bersihkan kolom input cari
-    const inputCari = document.getElementById('search-name') || document.querySelector('input[placeholder*="Cari"]');
+    if (!confirm("Jon, yakin mau KOSONGKAN semua data absen hari ini?")) return;
+
+    // 1. Bersihkan input pencarian
+    const inputCari = document.getElementById('search-name');
     if (inputCari) inputCari.value = '';
 
-    // 2. Munculkan kembali semua data yang 55 itu
-    if (typeof renderSemua === 'function') {
-        renderSemua(window.attendanceData || []);
-    }
+    // 2. Kosongkan data lokal
+    window.attendanceData = [];
+
+    // 3. Update tampilan ke nol (Hadir 0, Mangkir Full)
+    window.updateDashboard();
+
+    // 4. (Opsional) Jika pakai Firebase, lo harus hapus di DB juga
+    // set(ref(db, 'attendance/' + tanggalHariIni), null);
     
-    console.log("Tampilan kembali ke semula.");
+    console.log("Semua data dibersihkan, Jon!");
 };
 
 // Pastikan inisialisasi awal manggil fungsi yang bener

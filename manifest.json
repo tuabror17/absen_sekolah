@@ -1,0 +1,22 @@
+{
+  "name": "Darul Abror IBS - Smart Scanner",
+  "short_name": "Absensi",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6366f1",
+  "description": "Sistem Absensi Digital Darul Abror IBS",
+  "icons": [
+    {
+      "src": "https://img.api.photo/render?id=ODkzNTI5MjY4&signature=26e84d943da54d5b94f99999a4c8430a",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://img.api.photo/render?id=ODkzNTI5MjY4&signature=26e84d943da54d5b94f99999a4c8430a",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
