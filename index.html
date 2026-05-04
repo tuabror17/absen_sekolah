@@ -1,4 +1,4 @@
-﻿<html lang="id">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1172,37 +1172,26 @@ window.renderDatabase = function(dataToRender = null) {
 
 
 window.downloadExcel = function() {
-    console.log("Memulai Export Harian...");
-
-    // Ambil data yang lagi nampil di tabel dashboard
     const dataAktif = window.attendanceData || [];
-
     if (dataAktif.length === 0) {
-        alert("Tabel di layar masih kosong, Jon! Tunggu data muncul dulu.");
+        alert("Tabel kosong, Jon!");
         return;
     }
 
-    // Mapping biar rapi dan dapet NAMA
     const dataSiap = dataAktif.map((s, i) => {
         return {
             "NO": i + 1,
-            "TANGGAL": s.tanggal || s.date || "29-04-2026",
-            "ID SISWA": s.student_id || s.id || "-",
-            "NAMA": (s.nama || s.name || "TANPA NAMA").toUpperCase(),
-            "KELAS": s.kelas || "-",
-            "JAM": s.pukul_masuk || s.time || "--:--",
-            "STATUS": (s.status || "HADIR").toUpperCase()
+            "TANGGAL": s.date || "-",
+            "ID SISWA": s.student_id || "-",
+            "NAMA": (s.name || "TANPA NAMA").toUpperCase(),
+            "KELAS": s.class || "-",
+            "JAM MASUK": s.pukul_masuk || "--:--", // Ganti 'JAM' jadi 'JAM MASUK'
+            "JAM PULANG": s.pukul_pulang || "--:--", // <--- TAMBAHKAN INI, BROO!
+            "STATUS": (s.late ? "TERLAMBAT" : "HADIR").toUpperCase()
         };
     });
 
-    try {
-        // Panggil mesin cetak (exportToExcel)
-        exportToExcel(dataSiap, `REKAP_HARIAN_DSIGN_${new Date().getTime()}`);
-        alert(`Berhasil download ${dataSiap.length} siswa hari ini!`);
-    } catch (err) {
-        console.error(err);
-        alert("Gagal cetak Excel! Cek apakah fungsi exportToExcel sudah ada.");
-    }
+    exportToExcel(dataSiap, `REKAP_HARIAN_DSIGN_${new Date().getTime()}`);
 };
 
 // 2. Fungsi download bulanan (narik semua folder tanggal di Firebase)
@@ -1231,14 +1220,15 @@ window.downloadBulanan = async function() {
                 const namaSiswa = s.nama || s.name || "TANPA NAMA";
 
                 rekapBulanan.push({
-                    "NO": no++,
-                    "TANGGAL": tgl,
-                    "ID SISWA": idSiswa,
-                    "NAMA": namaSiswa.toUpperCase(),
-                    "KELAS": s.kelas || s.class || "-",
-                    "JAM": s.pukul_masuk || s.time || "--:--",
-                    "STATUS": (s.status || (s.late ? "TERLAMBAT" : "HADIR")).toUpperCase()
-                });
+    "NO": no++,
+    "TANGGAL": tgl,
+    "ID SISWA": idSiswa,
+    "NAMA": namaSiswa.toUpperCase(),
+    "KELAS": s.class || s.kelas || "-",
+    "JAM MASUK": s.pukul_masuk || "--:--",
+    "JAM PULANG": s.pukul_pulang || "--:--", // <--- HARUS ADA INI BIAR GAK KOSONG
+    "STATUS": (s.late ? "TERLAMBAT" : "HADIR").toUpperCase()
+});
             });
         });
 
@@ -1261,9 +1251,9 @@ function exportToExcel(data, fileName) {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     
-    // Set lebar kolom biar rapi
+    // Nambah satu kolom lagi untuk Jam Pulang (index ke-6)
     ws['!cols'] = [
-        {wch: 5}, {wch: 15}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 15}
+        {wch: 5}, {wch: 15}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 12}, {wch: 15}
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Rekap");
