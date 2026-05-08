@@ -294,24 +294,25 @@
 
         // 3. Panggil fungsi load data setelah Firebase siap
         if (typeof window.loadAttendanceData === 'function') {
-            window.loadAttendanceData(getTodayStr().f1);
-        }
+    window.loadAttendanceData(getTodayStr()); 
+}
 
 window.sendToFirebase = function(data) {
-    const todayPath = getTodayStr(); // Pakai fungsi baru yang fix
-    const sId = data.student_id || data.id;
+    const todayPath = getTodayStr(); 
+    const sId = data.student_id; // Langsung tembak student_id
     
     if (!sId) return;
 
     data.date = todayPath;
+    data.last_sync = new Date().getTime(); // Tambahan biar tau update terakhir
+    
     const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${sId}`);
     
-    // Pakai UPDATE, bukan SET/PUSH supaya data lama (jam masuk) gak ketimpa jam pulang
     window.fbUpdate(studentRef, data)
         .then(() => {
-            console.log(`[SUCCESS] ID: ${sId} Sinkron!`);
+            console.log(`[SUCCESS] ID: ${sId} Sinkron ke folder ${todayPath}`);
         })
-        .catch((e) => console.error("Gagal sinkron:", e));
+        .catch((e) => console.error("Gagal sinkron, Jon!", e));
 };
 
 // Fungsi Helper untuk Scan Pulang (Panggil ini pas sore nanti)
@@ -789,17 +790,20 @@ window.onScanSuccess = function(decodedText) {
 
 window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
-    const cleanId = student.id.toString().replace(/^0+/, '');
     
-    // JANGAN PERCAYA PARAMETER 'date', PAKSA PAKAI FUNGSI LO SENDIRI
+    // 1. Standarisasi ID (Pastikan string dan tanpa leading zero)
+    const cleanId = String(student.id).replace(/^0+/, '');
+    
+    // 2. KUNCI MATI: Paksa format DD-MM-YYYY
     const tanggalFix = getTodayStr(); 
 
-    // RACIK PAYLOAD (Sama kayak sebelumnya)
+    // 3. RACIK PAYLOAD
+    // Gunakan existing data kalau ada, kalau nggak ada bikin baru
     let payload = existing ? { ...existing } : {
         student_id: cleanId,
         name: student.nama,          
         class: student.kelas || "-", 
-        date: tanggalFix, // Pakai tanggal yang udah dipaksa 2 digit
+        date: tanggalFix, 
         timestamp: Date.now(),
         pukul_masuk: "--:--", 
         pukul_pulang: "--:--",
@@ -808,38 +812,47 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
         late: false
     };
 
-    // UPDATE LOGIKA (Hanya timpa field yang relevan)
+    // 4. LOGIKA UPDATE FIELD
     if (isPulang) {
         payload.pukul_pulang = time;
         payload.status_pulang = "PULANG";
-        // pukul_masuk TIDAK disentuh, tetep pakai nilai lama
+        // pukul_masuk tetap aman karena spread { ...existing }
     } else {
         payload.pukul_masuk = time;
         payload.status_masuk = "HADIR";
+        // Logika terlambat
         if (typeof CONFIG !== 'undefined' && CONFIG.LATE_TIME) {
             payload.late = time > CONFIG.LATE_TIME;
         }
     }
 
-    // Update Memori Lokal
-    const idx = attendanceData.findIndex(e => 
-        e.student_id.toString().replace(/^0+/, '') === cleanId && e.date === tanggalFix
+    // 5. UPDATE MEMORI LOKAL (Biar Dashboard Langsung Berubah)
+    // Cari yang ID-nya sama DAN tanggalnya sama
+    const idx = window.attendanceData.findIndex(e => 
+        String(e.student_id).replace(/^0+/, '') === cleanId && e.date === tanggalFix
     );
+
     if (idx !== -1) {
-        attendanceData[idx] = payload;
+        window.attendanceData[idx] = payload;
     } else {
-        attendanceData.push(payload);
+        window.attendanceData.push(payload);
     }
 
-    // Kirim ke Firebase
+    // 6. KIRIM KE FIREBASE
     if (typeof window.sendToFirebase === 'function') {
         window.sendToFirebase(payload);
     }
 
-    // Feedback UI
+    // 7. FEEDBACK UI
     const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
     playSnd(soundEffect);
-    showResult(student.nama, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
+    
+    const msg = isPulang ? "PULANG BERHASIL" : (payload.late ? "TERLAMBAT!" : "MASUK BERHASIL");
+    const color = isPulang ? "bg-orange-500" : (payload.late ? "bg-red-500" : "bg-emerald-500");
+    
+    showResult(student.nama, msg, color);
+
+    // Lock scanner selama 2 detik biar gak double scan
     setTimeout(() => { isProcessing = false; }, 2000);
 };
 
