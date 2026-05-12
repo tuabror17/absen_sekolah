@@ -306,7 +306,7 @@ window.sendToFirebase = function(data) {
     data.date = todayPath;
     data.last_sync = new Date().getTime(); // Tambahan biar tau update terakhir
     
-    const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${sId}`);
+    const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${cleanId}`);
     
     window.fbUpdate(studentRef, data)
         .then(() => {
@@ -792,7 +792,7 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
     
     // 1. Standarisasi ID (Pastikan string dan tanpa leading zero)
-    const cleanId = String(student.id).replace(/^0+/, '');
+   const cleanId = String(student.id).replace(/^0+/, '').trim();
     
     // 2. KUNCI MATI: Paksa format DD-MM-YYYY
     const tanggalFix = getTodayStr(); 
@@ -828,15 +828,17 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
 
     // 5. UPDATE MEMORI LOKAL (Biar Dashboard Langsung Berubah)
     // Cari yang ID-nya sama DAN tanggalnya sama
-    const idx = window.attendanceData.findIndex(e => 
-        String(e.student_id).replace(/^0+/, '') === cleanId && e.date === tanggalFix
-    );
+   const idx = window.attendanceData.findIndex(e => 
+    String(e.student_id).replace(/^0+/, '').trim() === cleanId
+);
 
-    if (idx !== -1) {
-        window.attendanceData[idx] = payload;
-    } else {
-        window.attendanceData.push(payload);
-    }
+if (idx !== -1) {
+    // GABUNGKAN! Ambil data lama, timpa dengan data baru
+    window.attendanceData[idx] = { ...window.attendanceData[idx], ...payload };
+} else {
+    // BARU MASUKKAN
+    window.attendanceData.push(payload);
+}
 
     // 6. KIRIM KE FIREBASE
     if (typeof window.sendToFirebase === 'function') {
@@ -1262,7 +1264,27 @@ window.renderSemua = function(dataToRender = null) {
     if (!container) return;
     
     container.innerHTML = '';
-    let records = dataToRender || window.attendanceData || [];
+    let rawRecords = dataToRender || window.attendanceData || [];
+    
+    // --- JURUS GABUNG DATA (Grouping by ID) ---
+    const grouped = {};
+    rawRecords.forEach(item => {
+        const sId = String(item.student_id || item.id).replace(/^0+/, '');
+        if (!grouped[sId]) {
+            grouped[sId] = { ...item }; // Copy data pertama
+        } else {
+            // Kalau ketemu ID yang sama, timpa field yang isinya bukan default
+            if (item.pukul_masuk && item.pukul_masuk !== "--:--") grouped[sId].pukul_masuk = item.pukul_masuk;
+            if (item.pukul_pulang && item.pukul_pulang !== "--:--") grouped[sId].pukul_pulang = item.pukul_pulang;
+            if (item.late === true || item.late === "true") grouped[sId].late = true;
+            // Update timestamp ke yang terbaru
+            if ((item.timestamp || 0) > (grouped[sId].timestamp || 0)) grouped[sId].timestamp = item.timestamp;
+        }
+    });
+
+    // Ubah object jadi array lagi buat di-sort
+    let records = Object.values(grouped);
+    // ------------------------------------------
     
     // Sort terbaru di atas
     records.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1272,16 +1294,15 @@ window.renderSemua = function(dataToRender = null) {
         const pulang = item.pukul_pulang || "--:--";
         const isLate = item.late === true || item.late === "true";
         
-        // TETAP PAKAI CLASS LAMA LO, JON
         const borderClass = isLate ? "border-red-500/30 bg-red-500/5" : "border-emerald-500/30 bg-emerald-500/5";
         const textHadirClass = isLate ? "text-red-400" : "text-emerald-400";
 
         const row = `
             <div class="border ${borderClass} p-4 rounded-2xl flex items-center justify-between mb-3">
                 <div>
-                    <p class="text-[11px] font-black text-white uppercase tracking-wider">${item.name || 'SISWA'}</p>
+                    <p class="text-[11px] font-black text-white uppercase tracking-wider">${item.name || item.nama || 'SISWA'}</p>
                     <p class="text-[9px] font-bold text-slate-400 uppercase">
-                        ${item.class || 'KELAS'} | <span class="${textHadirClass}">${isLate ? 'TERLAMBAT' : 'HADIR'}</span>
+                        ${item.class || item.kelas || 'KELAS'} | <span class="${textHadirClass}">${isLate ? 'TERLAMBAT' : 'HADIR'}</span>
                     </p>
                 </div>
                 <div class="flex gap-8 items-center text-right">
@@ -1298,7 +1319,6 @@ window.renderSemua = function(dataToRender = null) {
         container.insertAdjacentHTML('beforeend', row);
     });
 
-    // Update Dashboard (Counter) Otomatis
     if (typeof window.updateDashboard === 'function') {
         window.updateDashboard();
     }
