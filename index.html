@@ -290,7 +290,7 @@
         window.fbUpdate = update;
         window.fbOnValue = onValue;
 
-        console.log("Firebase Tools siap tempur, Jon!");
+        console.log("Firebase Tools siap tempur,!");
 
         // 3. Panggil fungsi load data setelah Firebase siap
         if (typeof window.loadAttendanceData === 'function') {
@@ -340,7 +340,7 @@ const CONFIG = {
     START_TIME: "06:45:00",
     LATE_TIME: "07:50:00",
     END_TIME: "09:00:00",   // Batas akhir absen masuk
-    EXIT_START: "14:00:00", // Mulai absen pulang
+    EXIT_START: "11:00:00", // Mulai absen pulang
     EXIT_END: "16:00:00"    // Akhir absen pulang
 };
 
@@ -721,7 +721,7 @@ window.initScanner = async function() {
             onScanSuccess
         );
     } catch (err) {
-        alert("Kamera error, Jon! Cek izin kamera.");
+        alert("Kamera error,! Cek izin kamera.");
     }
 };
 
@@ -743,7 +743,7 @@ window.onScanSuccess = function(decodedText) {
         siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId) : null;
     
     if (!student) {
-        console.error("Siswa tidak terdaftar, Jon!");
+        console.error("Siswa tidak terdaftar,!");
         return;
     }
 
@@ -1049,7 +1049,7 @@ window.renderDatabase = function(dataToRender = null) {
     const container = document.getElementById('full-list');
     
     if (!container) {
-        console.warn("Waduh Jon, elemen 'full-list' nggak ketemu!");
+        console.warn("Waduh, elemen 'full-list' nggak ketemu!");
         return;
     }
 
@@ -1061,7 +1061,7 @@ window.renderDatabase = function(dataToRender = null) {
     if (records.length === 0) {
         container.innerHTML = `
             <div class="text-center py-10 opacity-50">
-                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini, Jon.</p>
+                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini,.</p>
             </div>`;
         return;
     }
@@ -1144,7 +1144,7 @@ window.downloadBulanan = async function() {
     try {
         const snapshot = await get(ref(db, 'absensi'));
         if (!snapshot.exists()) {
-            alert("Database kosong, Jon!");
+            alert("Database kosong,!");
             return;
         }
 
@@ -1296,7 +1296,7 @@ window.loadAttendanceData = function(tanggal) {
 };
 
 window.clearList = function() {
-    if (!confirm("Jon, yakin mau KOSONGKAN semua data absen hari ini?")) return;
+    if (!confirm(" yakin mau KOSONGKAN semua data absen hari ini?")) return;
 
     // 1. Bersihkan input pencarian
     const inputCari = document.getElementById('search-name');
@@ -1311,7 +1311,7 @@ window.clearList = function() {
     // 4. (Opsional) Jika pakai Firebase, lo harus hapus di DB juga
     // set(ref(db, 'attendance/' + tanggalHariIni), null);
     
-    console.log("Semua data dibersihkan, Jon!");
+    console.log("Semua data dibersihkan,!");
 };
 
 // Pastikan inisialisasi awal manggil fungsi yang bener
