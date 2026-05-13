@@ -298,33 +298,23 @@
         }
 
  window.sendToFirebase = function(data) {
-    // Karena getTodayStr() lo sekarang cuma return string, jangan pakai .f1
-    const todayPath = getTodayStr(); 
-    
-    const sId = data.student_id || data.id;
-    
-    if (!sId) {
-        console.error("ID Siswa tidak ditemukan, Jon!");
+    const sId = data.student_id;
+    const tgl = data.date;
+
+    if (!sId || !tgl) {
+        console.error("ID atau Tanggal kosong!");
         return;
     }
 
-    // --- BERESIN DI SINI ---
-    // Jangan nimpa data.waktu lagi karena jam sudah ada di data.pukul_masuk
-    // Cukup pastikan date-nya benar
-    data.date = todayPath;
-    // -----------------------
+    // LOCK: Alamat harus nembak ke ID_SISWA langsung
+    const studentRef = window.fbRef(window.db, `absensi/${tgl}/${sId}`);
 
-    const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${sId}`);
-    
+    // GUNAKAN UPDATE (Biar Pagi & Sore nyatu di satu baris)
     window.fbUpdate(studentRef, data)
         .then(() => {
-            console.log(`%c [SUCCESS] %c ID: ${sId} Sinkron ke Cloud!`, 
-                        'background: #10b981; color: white; font-weight: bold;', 
-                        'color: #10b981;');
+            console.log(`[SINKRON] ID: ${sId} di folder ${tgl} SUKSES.`);
         })
-        .catch((e) => {
-            console.error("Gagal sinkron ke Firebase:", e);
-        });
+        .catch((e) => console.error("Gagal update Firebase:", e));
 };
 
 // Fungsi Helper untuk Scan Pulang (Panggil ini pas sore nanti)
@@ -804,30 +794,29 @@ window.onScanSuccess = function(decodedText) {
 
 window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
-    const cleanId = student.id.toString().replace(/^0+/, '');
     
-    // JANGAN PERCAYA PARAMETER 'date', PAKSA PAKAI FUNGSI LO SENDIRI
-    const tanggalFix = getTodayStr(); 
+    // 1. STANDARISASI ID (Haram ada spasi atau nol di depan)
+    const cleanId = String(student.id || "").trim().replace(/^0+/, '');
+    const tanggalFix = getTodayStr(); // Pastiin fungsi padding 08-05-2026 lo aktif
 
-    // RACIK PAYLOAD (Sama kayak sebelumnya)
+    // 2. RACIK PAYLOAD (Data yang mau dikirim)
     let payload = existing ? { ...existing } : {
         student_id: cleanId,
-        name: student.nama,          
-        class: student.kelas || "-", 
-        date: tanggalFix, // Pakai tanggal yang udah dipaksa 2 digit
+        name: student.nama || student.name || "-",
+        class: student.kelas || student.class || "-",
+        date: tanggalFix,
         timestamp: Date.now(),
-        pukul_masuk: "--:--", 
+        pukul_masuk: "--:--",
         pukul_pulang: "--:--",
         status_masuk: "BELUM ABSEN",
         status_pulang: "BELUM PULANG",
         late: false
     };
 
-    // UPDATE LOGIKA (Hanya timpa field yang relevan)
+    // 3. UPDATE DATA (Masuk atau Pulang)
     if (isPulang) {
         payload.pukul_pulang = time;
         payload.status_pulang = "PULANG";
-        // pukul_masuk TIDAK disentuh, tetep pakai nilai lama
     } else {
         payload.pukul_masuk = time;
         payload.status_masuk = "HADIR";
@@ -836,52 +825,18 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
         }
     }
 
-    // Update Memori Lokal
-    const idx = attendanceData.findIndex(e => 
-        e.student_id.toString().replace(/^0+/, '') === cleanId && e.date === tanggalFix
-    );
-    if (idx !== -1) {
-        attendanceData[idx] = payload;
-    } else {
-        attendanceData.push(payload);
-    }
-
-    // Kirim ke Firebase
+    // 4. KIRIM KE FIREBASE
     if (typeof window.sendToFirebase === 'function') {
         window.sendToFirebase(payload);
     }
 
-    // Feedback UI
+    // 5. FEEDBACK SUARA & UI
     const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
     playSnd(soundEffect);
-    showResult(student.nama, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
+    showResult(payload.name, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
+    
     setTimeout(() => { isProcessing = false; }, 2000);
 };
-
-// ==========================================
-// 4. UI HELPERS
-// ==========================================
-function showResult(nama, statusMsg, bgColorClass) {
-    const layer = document.getElementById('cooldown-layer');
-    const nameEl = document.getElementById('cooldown-name');
-    const statusEl = document.getElementById('cooldown-status');
-    const iconBox = document.getElementById('cooldown-icon-box');
-    const scanLine = document.getElementById('scan-line-element');
-
-    if (layer) {
-        layer.classList.remove('hidden');
-        nameEl.innerText = nama;
-        statusEl.innerText = statusMsg;
-        iconBox.className = `w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-bounce ${bgColorClass}`;
-    }
-    if (scanLine) scanLine.style.display = 'none';
-
-    setTimeout(() => {
-        layer?.classList.add('hidden');
-        if (scanLine) scanLine.style.display = 'block';
-        isProcessing = false; 
-    }, 2500);
-}
 
 function playSnd(id) {
     const s = document.getElementById(id);
