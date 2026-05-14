@@ -804,61 +804,64 @@ window.onScanSuccess = function(decodedText) {
 
 window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
+    const cleanId = student.id.toString().replace(/^0+/, '');
+    const tanggalFix = getTodayStr(); 
 
-    // 1. NORMALISASI ID (Kunci biar kls 7-9 & 10-11 seragam)
-    const cleanId = String(student.id || "").trim().replace(/^0+/, '');
+    let payload = {};
     
-    // 2. RACIK PAYLOAD (Data yang mau dikirim)
-    // Kalau data sudah ada (existing), kita timpa/update. Kalau belum, kita buat baru.
-    let payload = existing ? { ...existing } : {
-        student_id: cleanId,
-        name: student.nama || "-",
-        class: student.kelas || "-",
-        date: date,
-        timestamp: Date.now(),
-        pukul_masuk: "--:--",
-        pukul_pulang: "--:--",
-        status_masuk: "BELUM ABSEN",
-        status_pulang: "BELUM PULANG",
-        late: false
-    };
-
-    // 3. UPDATE JAM (Sesuai sesi Masuk atau Pulang)
-    if (isPulang) {
-        payload.pukul_pulang = time;
-        payload.status_pulang = "PULANG";
+    if (!existing) {
+        // Jika data baru (Belum scan masuk)
+        payload = {
+            student_id: cleanId,
+            name: student.nama,          
+            class: student.kelas || "-", 
+            date: tanggalFix,
+            timestamp: Date.now(),
+            pukul_masuk: isPulang ? "--:--" : time, 
+            pukul_pulang: isPulang ? time : "--:--",
+            status_masuk: isPulang ? "BELUM ABSEN" : "HADIR",
+            status_pulang: isPulang ? "PULANG" : "BELUM PULANG",
+            late: !isPulang && (typeof CONFIG !== 'undefined' && time > CONFIG.LATE_TIME)
+        };
     } else {
-        payload.pukul_masuk = time;
-        payload.status_masuk = "HADIR";
-        if (typeof CONFIG !== 'undefined' && CONFIG.LATE_TIME) {
-            payload.late = time > CONFIG.LATE_TIME;
+        // Jika sudah ada data (Update tanpa hapus yang lama)
+        if (isPulang) {
+            payload.pukul_pulang = time;
+            payload.status_pulang = "PULANG";
+        } else {
+            payload.pukul_masuk = time;
+            payload.status_masuk = "HADIR";
+            if (typeof CONFIG !== 'undefined') {
+                payload.late = time > CONFIG.LATE_TIME;
+            }
         }
     }
 
-    // 4. KIRIM KE FIREBASE (Pakai ID sebagai folder, BUKAN kode acak)
-    // Ini yang bikin laporan lo nanti SEJAJAR
-    const studentRef = window.fbRef(window.db, `absensi/${date}/${cleanId}`);
+    // UPDATE LANGSUNG: Kunci di path ID Siswa
+    const studentRef = window.fbRef(window.db, `absensi/${tanggalFix}/${cleanId}`);
     
     window.fbUpdate(studentRef, payload)
         .then(() => {
-            console.log(`[BERHASIL] ID: ${cleanId} Terpaku di jalurnya.`);
+            console.log(`[SUKSES] Data ${student.nama} sinkron!`);
+            const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
+            if (typeof playSnd === 'function') playSnd(soundEffect);
+            
+            if (typeof showResult === 'function') {
+                showResult(
+                    student.nama, 
+                    isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", 
+                    isPulang ? "bg-orange-500" : "bg-emerald-500"
+                );
+            }
         })
         .catch((err) => {
-            console.error("Gagal update Firebase:", err);
+            console.error("Firebase Error!", err);
+            alert("Gagal simpan!");
+        })
+        .finally(() => {
+            setTimeout(() => { isProcessing = false; }, 2000);
         });
-
-    // 5. UI & SOUND (Gue biarin sesuai selera lo biar gak ngaco)
-    const statusText = isPulang ? "PULANG BERHASIL" : (payload.late ? "TERLAMBAT" : "MASUK BERHASIL");
-    const bgColor = isPulang ? "bg-orange-500" : (payload.late ? "bg-emerald-500" : "bg-emerald-500");
-    const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
-
-    if (typeof playSnd === 'function') playSnd(soundEffect);
-    if (typeof showResult === 'function') showResult(payload.name, statusText, bgColor);
-
-    // Lock scanner 2 detik biar gak double scan
-    setTimeout(() => { isProcessing = false; }, 2000);
 };
-
 // ==========================================
 // 4. UI HELPERS
 // ==========================================
@@ -1169,19 +1172,42 @@ window.renderDatabase = function(dataToRender = null) {
 window.downloadExcel = function() {
     const dataAktif = window.attendanceData || [];
     
+    if (dataAktif.length === 0) {
+        alert("Belum ada data absen untuk didownload, Jon!");
+        return;
+    }
+
+    // 1. Map data agar jam masuk dan pulang sejajar
     const dataSiap = dataAktif.map((s, i) => {
         return {
             "NO": i + 1,
             "TANGGAL": s.date || "-",
-            "NAMA": s.name.toUpperCase(),
+            "NAMA": s.name ? s.name.toUpperCase() : "-",
             "KELAS": s.class || "-",
-            "JAM MASUK": s.pukul_masuk || "--:--", // Ngambil dari field masuk
-            "JAM PULANG": s.pukul_pulang || "--:--", // Ngambil dari field pulang
-            "STATUS": s.late ? "TERLAMBAT" : "HADIR"
+            "JAM MASUK": s.pukul_masuk || "--:--",
+            "JAM PULANG": s.pukul_pulang || "--:--",
+            "STATUS MASUK": s.status_masuk || "-",
+            "STATUS PULANG": s.status_pulang || "-",
+            "KETERANGAN": s.late ? "TERLAMBAT" : "TEPAT WAKTU"
         };
     });
 
-    exportToExcel(dataSiap, `REKAP_ABSENSI_${new Date().toLocaleDateString()}`);
+    // 2. Proses pembuatan file Excel (Langsung di sini biar aman)
+    try {
+        const ws = XLSX.utils.json_to_sheet(dataSiap);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rekap Absensi");
+
+        // 3. Nama file sesuai tanggal hari ini
+        const fileName = `REKAP_ABSENSI_${getTodayStr()}.xlsx`;
+        
+        // 4. Download file
+        XLSX.writeFile(wb, fileName);
+        console.log("[SUKSES] Excel berhasil didownload.");
+    } catch (error) {
+        console.error("Gagal export Excel:", error);
+        alert("Waduh, gagal download Excel-nya, Broo!");
+    }
 };
 
 // 2. Fungsi download bulanan (narik semua folder tanggal di Firebase)
