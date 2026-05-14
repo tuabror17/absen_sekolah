@@ -290,7 +290,7 @@
         window.fbUpdate = update;
         window.fbOnValue = onValue;
 
-        console.log("Firebase Tools siap tempur,!");
+        console.log("Firebase Tools siap tempur, Jon!");
 
         // 3. Panggil fungsi load data setelah Firebase siap
         if (typeof window.loadAttendanceData === 'function') {
@@ -298,23 +298,33 @@
         }
 
  window.sendToFirebase = function(data) {
-    const sId = data.student_id;
-    const tgl = data.date;
-
-    if (!sId || !tgl) {
-        console.error("ID atau Tanggal kosong!");
+    // Karena getTodayStr() lo sekarang cuma return string, jangan pakai .f1
+    const todayPath = getTodayStr(); 
+    
+    const sId = data.student_id || data.id;
+    
+    if (!sId) {
+        console.error("ID Siswa tidak ditemukan, Jon!");
         return;
     }
 
-    // LOCK: Alamat harus nembak ke ID_SISWA langsung
-    const studentRef = window.fbRef(window.db, `absensi/${tgl}/${sId}`);
+    // --- BERESIN DI SINI ---
+    // Jangan nimpa data.waktu lagi karena jam sudah ada di data.pukul_masuk
+    // Cukup pastikan date-nya benar
+    data.date = todayPath;
+    // -----------------------
 
-    // GUNAKAN UPDATE (Biar Pagi & Sore nyatu di satu baris)
+    const studentRef = window.fbRef(window.db, `absensi/${todayPath}/${sId}`);
+    
     window.fbUpdate(studentRef, data)
         .then(() => {
-            console.log(`[SINKRON] ID: ${sId} di folder ${tgl} SUKSES.`);
+            console.log(`%c [SUCCESS] %c ID: ${sId} Sinkron ke Cloud!`, 
+                        'background: #10b981; color: white; font-weight: bold;', 
+                        'color: #10b981;');
         })
-        .catch((e) => console.error("Gagal update Firebase:", e));
+        .catch((e) => {
+            console.error("Gagal sinkron ke Firebase:", e);
+        });
 };
 
 // Fungsi Helper untuk Scan Pulang (Panggil ini pas sore nanti)
@@ -340,7 +350,7 @@ const CONFIG = {
     START_TIME: "06:45:00",
     LATE_TIME: "07:50:00",
     END_TIME: "09:00:00",   // Batas akhir absen masuk
-    EXIT_START: "11:00:00", // Mulai absen pulang
+    EXIT_START: "14:00:00", // Mulai absen pulang
     EXIT_END: "16:00:00"    // Akhir absen pulang
 };
 
@@ -721,7 +731,7 @@ window.initScanner = async function() {
             onScanSuccess
         );
     } catch (err) {
-        alert("Kamera error,! Cek izin kamera.");
+        alert("Kamera error, Jon! Cek izin kamera.");
     }
 };
 
@@ -743,7 +753,7 @@ window.onScanSuccess = function(decodedText) {
         siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId) : null;
     
     if (!student) {
-        console.error("Siswa tidak terdaftar,!");
+        console.error("Siswa tidak terdaftar, Jon!");
         return;
     }
 
@@ -794,29 +804,30 @@ window.onScanSuccess = function(decodedText) {
 
 window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
+    const cleanId = student.id.toString().replace(/^0+/, '');
     
-    // 1. STANDARISASI ID (Haram ada spasi atau nol di depan)
-    const cleanId = String(student.id || "").trim().replace(/^0+/, '');
-    const tanggalFix = getTodayStr(); // Pastiin fungsi padding 08-05-2026 lo aktif
+    // JANGAN PERCAYA PARAMETER 'date', PAKSA PAKAI FUNGSI LO SENDIRI
+    const tanggalFix = getTodayStr(); 
 
-    // 2. RACIK PAYLOAD (Data yang mau dikirim)
+    // RACIK PAYLOAD (Sama kayak sebelumnya)
     let payload = existing ? { ...existing } : {
         student_id: cleanId,
-        name: student.nama || student.name || "-",
-        class: student.kelas || student.class || "-",
-        date: tanggalFix,
+        name: student.nama,          
+        class: student.kelas || "-", 
+        date: tanggalFix, // Pakai tanggal yang udah dipaksa 2 digit
         timestamp: Date.now(),
-        pukul_masuk: "--:--",
+        pukul_masuk: "--:--", 
         pukul_pulang: "--:--",
         status_masuk: "BELUM ABSEN",
         status_pulang: "BELUM PULANG",
         late: false
     };
 
-    // 3. UPDATE DATA (Masuk atau Pulang)
+    // UPDATE LOGIKA (Hanya timpa field yang relevan)
     if (isPulang) {
         payload.pukul_pulang = time;
         payload.status_pulang = "PULANG";
+        // pukul_masuk TIDAK disentuh, tetep pakai nilai lama
     } else {
         payload.pukul_masuk = time;
         payload.status_masuk = "HADIR";
@@ -825,18 +836,52 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
         }
     }
 
-    // 4. KIRIM KE FIREBASE
+    // Update Memori Lokal
+    const idx = attendanceData.findIndex(e => 
+        e.student_id.toString().replace(/^0+/, '') === cleanId && e.date === tanggalFix
+    );
+    if (idx !== -1) {
+        attendanceData[idx] = payload;
+    } else {
+        attendanceData.push(payload);
+    }
+
+    // Kirim ke Firebase
     if (typeof window.sendToFirebase === 'function') {
         window.sendToFirebase(payload);
     }
 
-    // 5. FEEDBACK SUARA & UI
+    // Feedback UI
     const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
     playSnd(soundEffect);
-    showResult(payload.name, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
-    
+    showResult(student.nama, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
     setTimeout(() => { isProcessing = false; }, 2000);
 };
+
+// ==========================================
+// 4. UI HELPERS
+// ==========================================
+function showResult(nama, statusMsg, bgColorClass) {
+    const layer = document.getElementById('cooldown-layer');
+    const nameEl = document.getElementById('cooldown-name');
+    const statusEl = document.getElementById('cooldown-status');
+    const iconBox = document.getElementById('cooldown-icon-box');
+    const scanLine = document.getElementById('scan-line-element');
+
+    if (layer) {
+        layer.classList.remove('hidden');
+        nameEl.innerText = nama;
+        statusEl.innerText = statusMsg;
+        iconBox.className = `w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-xl animate-bounce ${bgColorClass}`;
+    }
+    if (scanLine) scanLine.style.display = 'none';
+
+    setTimeout(() => {
+        layer?.classList.add('hidden');
+        if (scanLine) scanLine.style.display = 'block';
+        isProcessing = false; 
+    }, 2500);
+}
 
 function playSnd(id) {
     const s = document.getElementById(id);
@@ -1049,7 +1094,7 @@ window.renderDatabase = function(dataToRender = null) {
     const container = document.getElementById('full-list');
     
     if (!container) {
-        console.warn("Waduh, elemen 'full-list' nggak ketemu!");
+        console.warn("Waduh Jon, elemen 'full-list' nggak ketemu!");
         return;
     }
 
@@ -1061,7 +1106,7 @@ window.renderDatabase = function(dataToRender = null) {
     if (records.length === 0) {
         container.innerHTML = `
             <div class="text-center py-10 opacity-50">
-                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini,.</p>
+                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini, Jon.</p>
             </div>`;
         return;
     }
@@ -1144,7 +1189,7 @@ window.downloadBulanan = async function() {
     try {
         const snapshot = await get(ref(db, 'absensi'));
         if (!snapshot.exists()) {
-            alert("Database kosong,!");
+            alert("Database kosong, Jon!");
             return;
         }
 
@@ -1296,7 +1341,7 @@ window.loadAttendanceData = function(tanggal) {
 };
 
 window.clearList = function() {
-    if (!confirm(" yakin mau KOSONGKAN semua data absen hari ini?")) return;
+    if (!confirm("Jon, yakin mau KOSONGKAN semua data absen hari ini?")) return;
 
     // 1. Bersihkan input pencarian
     const inputCari = document.getElementById('search-name');
@@ -1311,7 +1356,7 @@ window.clearList = function() {
     // 4. (Opsional) Jika pakai Firebase, lo harus hapus di DB juga
     // set(ref(db, 'attendance/' + tanggalHariIni), null);
     
-    console.log("Semua data dibersihkan,!");
+    console.log("Semua data dibersihkan, Jon!");
 };
 
 // Pastikan inisialisasi awal manggil fungsi yang bener
