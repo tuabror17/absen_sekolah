@@ -804,30 +804,29 @@ window.onScanSuccess = function(decodedText) {
 
 window.executeProcess = function(student, date, time, existing, isPulang) {
     isProcessing = true;
-    const cleanId = student.id.toString().replace(/^0+/, '');
-    
-    // JANGAN PERCAYA PARAMETER 'date', PAKSA PAKAI FUNGSI LO SENDIRI
-    const tanggalFix = getTodayStr(); 
 
-    // RACIK PAYLOAD (Sama kayak sebelumnya)
+    // 1. NORMALISASI ID (Kunci biar kls 7-9 & 10-11 seragam)
+    const cleanId = String(student.id || "").trim().replace(/^0+/, '');
+    
+    // 2. RACIK PAYLOAD (Data yang mau dikirim)
+    // Kalau data sudah ada (existing), kita timpa/update. Kalau belum, kita buat baru.
     let payload = existing ? { ...existing } : {
         student_id: cleanId,
-        name: student.nama,          
-        class: student.kelas || "-", 
-        date: tanggalFix, // Pakai tanggal yang udah dipaksa 2 digit
+        name: student.nama || "-",
+        class: student.kelas || "-",
+        date: date,
         timestamp: Date.now(),
-        pukul_masuk: "--:--", 
+        pukul_masuk: "--:--",
         pukul_pulang: "--:--",
         status_masuk: "BELUM ABSEN",
         status_pulang: "BELUM PULANG",
         late: false
     };
 
-    // UPDATE LOGIKA (Hanya timpa field yang relevan)
+    // 3. UPDATE JAM (Sesuai sesi Masuk atau Pulang)
     if (isPulang) {
         payload.pukul_pulang = time;
         payload.status_pulang = "PULANG";
-        // pukul_masuk TIDAK disentuh, tetep pakai nilai lama
     } else {
         payload.pukul_masuk = time;
         payload.status_masuk = "HADIR";
@@ -836,25 +835,27 @@ window.executeProcess = function(student, date, time, existing, isPulang) {
         }
     }
 
-    // Update Memori Lokal
-    const idx = attendanceData.findIndex(e => 
-        e.student_id.toString().replace(/^0+/, '') === cleanId && e.date === tanggalFix
-    );
-    if (idx !== -1) {
-        attendanceData[idx] = payload;
-    } else {
-        attendanceData.push(payload);
-    }
+    // 4. KIRIM KE FIREBASE (Pakai ID sebagai folder, BUKAN kode acak)
+    // Ini yang bikin laporan lo nanti SEJAJAR
+    const studentRef = window.fbRef(window.db, `absensi/${date}/${cleanId}`);
+    
+    window.fbUpdate(studentRef, payload)
+        .then(() => {
+            console.log(`[BERHASIL] ID: ${cleanId} Terpaku di jalurnya.`);
+        })
+        .catch((err) => {
+            console.error("Gagal update Firebase:", err);
+        });
 
-    // Kirim ke Firebase
-    if (typeof window.sendToFirebase === 'function') {
-        window.sendToFirebase(payload);
-    }
-
-    // Feedback UI
+    // 5. UI & SOUND (Gue biarin sesuai selera lo biar gak ngaco)
+    const statusText = isPulang ? "PULANG BERHASIL" : (payload.late ? "TERLAMBAT" : "MASUK BERHASIL");
+    const bgColor = isPulang ? "bg-orange-500" : (payload.late ? "bg-emerald-500" : "bg-emerald-500");
     const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
-    playSnd(soundEffect);
-    showResult(student.nama, isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", isPulang ? "bg-orange-500" : "bg-emerald-500");
+
+    if (typeof playSnd === 'function') playSnd(soundEffect);
+    if (typeof showResult === 'function') showResult(payload.name, statusText, bgColor);
+
+    // Lock scanner 2 detik biar gak double scan
     setTimeout(() => { isProcessing = false; }, 2000);
 };
 
