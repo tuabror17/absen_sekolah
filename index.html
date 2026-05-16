@@ -214,20 +214,27 @@
        class="bg-transparent border-none text-white text-[11px] font-bold focus:ring-0 w-full placeholder:text-slate-600 outline-none">
 </div>
 
-    <div class="grid grid-cols-3 gap-3">
-        <div class="glass p-4 rounded-2xl text-center">
-            <p class="text-[7px] font-bold text-slate-500 uppercase mb-1">Hadir</p>
-            <h3 id="dash-hadir" class="text-xl font-black text-white">0</h3>
-        </div>
-        <div class="glass p-4 rounded-2xl text-center bg-red-500/5">
-            <p class="text-[7px] font-bold text-red-400 uppercase mb-1">Telat</p>
-            <h3 id="dash-telat" class="text-xl font-black text-red-400">0</h3>
-        </div>
-        <div class="glass p-4 rounded-2xl text-center bg-amber-500/5">
-            <p class="text-[7px] font-bold text-amber-400 uppercase mb-1">Mangkir</p>
-            <h3 id="dash-belum" class="text-xl font-black text-amber-400">0</h3>
-        </div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="glass p-4 rounded-2xl border-l-4 border-emerald-500">
+        <p class="text-slate-400 text-[9px] uppercase font-black mb-1">Masuk</p>
+        <h2 id="dash-hadir" class="text-2xl font-black text-white">0</h2>
     </div>
+    
+    <div class="glass p-4 rounded-2xl border-l-4 border-orange-500">
+        <p class="text-slate-400 text-[9px] uppercase font-black mb-1">Pulang</p>
+        <h2 id="dash-pulang" class="text-2xl font-black text-orange-400">0</h2>
+    </div>
+
+    <div class="glass p-4 rounded-2xl border-l-4 border-rose-500">
+        <p class="text-slate-400 text-[9px] uppercase font-black mb-1">Telat</p>
+        <h2 id="dash-telat" class="text-2xl font-black text-rose-500">0</h2>
+    </div>
+
+    <div class="glass p-4 rounded-2xl border-l-4 border-slate-500">
+        <p class="text-slate-400 text-[9px] uppercase font-black mb-1">Mangkir</p>
+        <h2 id="dash-belum" class="text-2xl font-black text-slate-300">0</h2>
+    </div>
+</div>
 
     <div class="space-y-4">
         <div class="glass p-6 rounded-[2rem]">
@@ -279,7 +286,7 @@
     };
 
 
-	const app = initializeApp(firebaseConfig);
+	    const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
         // 2. KUNCI RAHASIA: Tempelin ke window (Wajib di dalam sini!)
@@ -290,7 +297,7 @@
         window.fbUpdate = update;
         window.fbOnValue = onValue;
 
-        console.log("Firebase Tools siap tempur, Jon!");
+        console.log("Firebase Tools siap tempur");
 
         // 3. Panggil fungsi load data setelah Firebase siap
         if (typeof window.loadAttendanceData === 'function') {
@@ -304,7 +311,7 @@
     const sId = data.student_id || data.id;
     
     if (!sId) {
-        console.error("ID Siswa tidak ditemukan, Jon!");
+        console.error("ID Siswa tidak ditemukan");
         return;
     }
 
@@ -342,7 +349,7 @@ window.absenPulang = function(idSiswa) {
     window.sendToFirebase(dataUpdate);
 };
 
-console.log("Firebase Engine Ready & Protected, Broo!");
+console.log("Firebase Engine Ready & Protected");
 
 
 const CONFIG = {
@@ -716,150 +723,163 @@ setInterval(() => {
 // 3. SCANNER ENGINE
 // ==========================================
 window.initScanner = async function() {
-    document.getElementById('start-layer')?.classList.add('hidden');
+    const startLayer = document.getElementById('start-layer');
     const scanLine = document.getElementById('scan-line-element');
+    const readerElement = document.getElementById('reader');
+
+    if (startLayer) startLayer.classList.add('hidden');
     if (scanLine) scanLine.style.display = 'block';
-    
-    if (!html5QrScanner) {
-        html5QrScanner = new Html5Qrcode("reader");
+
+    // 1. Bersihkan session lama kalau ada
+    if (window.html5QrScanner) {
+        try {
+            await window.html5QrScanner.stop();
+        } catch (e) {
+            console.log("Scanner stop safely");
+        }
     }
 
+    // 2. Inisialisasi ulang
+    window.html5QrScanner = new Html5Qrcode("reader");
+
     try {
-        await html5QrScanner.start(
+        // 3. Pastikan Callback Ada (INI KUNCINYA)
+        // Kita pakai fungsi anonim langsung biar gak error 'required'
+        const successCallback = (decodedText, result) => {
+            if (typeof window.onScanSuccess === 'function') {
+                window.onScanSuccess(decodedText, result);
+            } else {
+                console.error("Fungsi window.onScanSuccess gak ketemu!");
+            }
+        };
+
+        // 4. Jalankan Scanner
+        await window.html5QrScanner.start(
             { facingMode: "environment" }, 
-            { fps: 24, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-            onScanSuccess
+            { 
+                fps: 24, 
+                qrbox: { width: 250, height: 250 }, 
+                aspectRatio: 1.0 
+            },
+            successCallback // Panggil variabel lokal yang sudah pasti fungsi
         );
+        
+        console.log("Kamera Aktif!");
+
     } catch (err) {
-        alert("Kamera error, Jon! Cek izin kamera.");
+        console.error("Gagal Buka Kamera:", err);
+        
+        // Handle error permission denied yang tadi
+        if (err.toString().includes("NotAllowedError") || err.toString().includes("Permission denied")) {
+            alert("IZIN KAMERA DITOLAK!\n\nKlik ikon gembok di pojok kiri atas browser, set Camera ke 'Allow', lalu refresh (F5).");
+        } else {
+            alert("Error Kamera: " + err);
+        }
+
+        if (startLayer) startLayer.classList.remove('hidden');
+        if (scanLine) scanLine.style.display = 'none';
     }
 };
 
 window.onScanSuccess = function(decodedText) {
-    if (isProcessing) return;
+    if (window.isProcessing) return;
 
     const now = Date.now();
-    // Normalisasi ID: Hapus spasi dan nol di depan
     const cleanId = decodedText.trim().replace(/^0+/, '');
 
-    // PROTEKSI 1: Anti-Spam (Jeda 5 detik)
-    if (cleanId === lastScannedId && (now - lastScannedTime) < 5000) {
-        console.warn("Sabar Broo, baru aja discan!");
-        return;
-    }
-
-    // 1. CARI DATA SISWA
+    // 1. Cari data siswa
     const student = (typeof siswa !== 'undefined') ? 
         siswa.find(s => s.id.toString().replace(/^0+/, '') === cleanId) : null;
     
     if (!student) {
-        console.error("Siswa tidak terdaftar, Jon!");
+        if (typeof playSnd === 'function') playSnd('snd-warning');
         return;
     }
 
-    // 2. KUNCI FORMAT TANGGAL (FIXED)
-    // Karena getTodayStr() lo sekarang return string, langsung pakai saja.
-    const todayForCheck = getTodayStr(); 
     const timeStr = new Date().toTimeString().split(' ')[0].substring(0, 5); 
-    
-    // 3. PROTEKSI 2: Cek memori lokal
-    const existing = attendanceData.find(e => 
-        e.student_id.toString().replace(/^0+/, '') === cleanId && 
-        e.date === todayForCheck
+    const todayStr = getTodayStr(); 
+
+    // 2. Cari apakah sudah ada data absen di memori (window.attendanceData)
+    const existing = (window.attendanceData || []).find(e => 
+        (e.student_id || "").toString().replace(/^0+/, '') === cleanId
     );
 
-    // 4. PENENTUAN SESI (Masuk vs Pulang)
-    const isMorningTime = timeStr >= CONFIG.START_TIME && timeStr <= CONFIG.END_TIME;
-    const isExitTime = timeStr >= CONFIG.EXIT_START && timeStr <= CONFIG.EXIT_END;
+    const isExitTime = timeStr >= CONFIG.EXIT_START;
 
+    // --- PROTEKSI DOUBLE ABSEN ---
     if (isExitTime) {
-        // Logika Absen Pulang
-        if (existing?.pukul_pulang && existing.pukul_pulang !== "--:--") {
+        // Cek kalau sudah pernah absen pulang
+        if (existing && existing.pukul_pulang && existing.pukul_pulang !== "--:--") {
             playSnd('snd-warning');
-            showResult(student.nama, "SUDAH ABSEN PULANG!", "bg-red-600");
-            return;
+            showResult(student.nama, "SUDAH ABSEN PULANG!", "bg-green-600");
+            return; // STOP DI SINI
         }
-        
-        lastScannedId = cleanId;
-        lastScannedTime = now;
-        executeProcess(student, todayForCheck, timeStr, existing, true);
-        
-    } else if (isMorningTime) {
-        // Logika Absen Masuk
-        if (existing && (existing.pukul_masuk !== "--:--" && existing.pukul_masuk)) {
-            playSnd('snd-warning');
-            showResult(student.nama, "SUDAH ABSEN MASUK!", "bg-blue-600");
-            return;
-        }
-        
-        lastScannedId = cleanId;
-        lastScannedTime = now;
-        executeProcess(student, todayForCheck, timeStr, existing, false);
-        
     } else {
-        playSnd('snd-warning');
-        showResult(student.nama, "SISTEM TERTUTUP", "bg-amber-500");
+        // Cek kalau sudah pernah absen masuk
+        if (existing && existing.pukul_masuk && existing.pukul_masuk !== "--:--") {
+            playSnd('snd-warning');
+            showResult(student.nama, "SUDAH ABSEN MASUK!", "bg-red-600");
+            return; // STOP DI SINI
+        }
     }
+
+    // Jika lolos proteksi, baru eksekusi
+    window.lastScannedId = cleanId;
+    window.lastScannedTime = now;
+    window.executeProcess(student, todayStr, timeStr, existing, isExitTime);
 };
 
+// 1. GLOBAL STATE MANAGER (Kunci utama agar tidak freeze)
+window.isProcessing = false;
+window.lastScannedId = null;
+window.lastScannedTime = 0;
+
+// 2. FUNGSI EKSEKUSI DATA (ANTI-OVERWRITE & SCALABLE)
 window.executeProcess = function(student, date, time, existing, isPulang) {
-    isProcessing = true;
+    window.isProcessing = true; 
     const cleanId = student.id.toString().replace(/^0+/, '');
-    const tanggalFix = getTodayStr(); 
 
     let payload = {};
     
     if (!existing) {
-        // Jika data baru (Belum scan masuk)
+        // Data Baru: Set field awal
         payload = {
             student_id: cleanId,
             name: student.nama,          
             class: student.kelas || "-", 
-            date: tanggalFix,
+            date: date,
             timestamp: Date.now(),
             pukul_masuk: isPulang ? "--:--" : time, 
             pukul_pulang: isPulang ? time : "--:--",
-            status_masuk: isPulang ? "BELUM ABSEN" : "HADIR",
+            status_masuk: isPulang ? "BELUM ABSEN" : (time > CONFIG.LATE_TIME ? "TELAT" : "HADIR"),
             status_pulang: isPulang ? "PULANG" : "BELUM PULANG",
-            late: !isPulang && (typeof CONFIG !== 'undefined' && time > CONFIG.LATE_TIME)
+            late: !isPulang && (time > CONFIG.LATE_TIME)
         };
     } else {
-        // Jika sudah ada data (Update tanpa hapus yang lama)
+        // Data Update: Hanya update field yang relevan
         if (isPulang) {
             payload.pukul_pulang = time;
             payload.status_pulang = "PULANG";
         } else {
             payload.pukul_masuk = time;
-            payload.status_masuk = "HADIR";
-            if (typeof CONFIG !== 'undefined') {
-                payload.late = time > CONFIG.LATE_TIME;
-            }
+            payload.status_masuk = time > CONFIG.LATE_TIME ? "TELAT" : "HADIR";
+            payload.late = time > CONFIG.LATE_TIME;
         }
     }
 
-    // UPDATE LANGSUNG: Kunci di path ID Siswa
-    const studentRef = window.fbRef(window.db, `absensi/${tanggalFix}/${cleanId}`);
+    const studentRef = window.fbRef(window.db, `absensi/${date}/${cleanId}`);
     
+    // PENTING: Gunakan window.fbUpdate, jangan set()
     window.fbUpdate(studentRef, payload)
         .then(() => {
-            console.log(`[SUKSES] Data ${student.nama} sinkron!`);
             const soundEffect = (!isPulang && payload.late) ? 'snd-late' : 'snd-success';
             if (typeof playSnd === 'function') playSnd(soundEffect);
-            
             if (typeof showResult === 'function') {
-                showResult(
-                    student.nama, 
-                    isPulang ? "PULANG BERHASIL" : "MASUK BERHASIL", 
-                    isPulang ? "bg-orange-500" : "bg-emerald-500"
-                );
+                showResult(student.nama, isPulang ? "PULANG SUKSES" : "MASUK SUKSES", isPulang ? "bg-orange-500" : "bg-emerald-500");
             }
         })
-        .catch((err) => {
-            console.error("Firebase Error!", err);
-            alert("Gagal simpan!");
-        })
         .finally(() => {
-            setTimeout(() => { isProcessing = false; }, 2000);
+            setTimeout(() => { window.isProcessing = false; }, 3000);
         });
 };
 // ==========================================
@@ -972,29 +992,37 @@ window.renderBelumAbsen = function() {
 
 // 2. FUNGSI UPDATE DASHBOARD (SINKRON DENGAN HTML LO)
 window.updateDashboard = function(dataToRender = null) {
+    // Ambil data asli dari memori global
     const data = window.attendanceData || [];
     const totalSiswa = (typeof siswa !== 'undefined') ? siswa.length : 258;
     
-    // 1. HITUNG STATISTIK (Selalu pakai data asli/total)
-    const hadir = data.filter(item => 
-        (item.pukul_masuk && item.pukul_masuk !== "--:--") || 
-        (item.time && item.time !== "--:--")
+    // 1. HITUNG STATISTIK (SINKRON DENGAN DATABASE)
+    
+    // Hitung Masuk: Cek field 'pukul_masuk'
+    const masuk = data.filter(item => 
+        item.pukul_masuk && item.pukul_masuk !== "--:--"
     ).length;
 
+    // Hitung Pulang: Cek field 'pukul_pulang'
+    const pulang = data.filter(item => 
+        item.pukul_pulang && item.pukul_pulang !== "--:--"
+    ).length;
+
+    // Hitung Terlambat: Cek field 'late'
     const terlambat = data.filter(item => 
         item.late === true || item.late === "true"
     ).length;
 
-    const mangkir = Math.max(0, totalSiswa - hadir);
+    // Hitung Mangkir
+    const mangkir = Math.max(0, totalSiswa - masuk);
 
-    // 2. UPDATE ANGKA DI ATAS
-    if (document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = hadir;
+    // 2. UPDATE ANGKA KE UI
+    if (document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = masuk;
+    if (document.getElementById('dash-pulang')) document.getElementById('dash-pulang').innerText = pulang;
     if (document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = terlambat;
     if (document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = mangkir;
     
-    // 3. LOGIKA RENDER (Biar fitur pencarian gak rusak)
-    // Jika ada data hasil pencarian (dataToRender), tampilkan itu. 
-    // Jika tidak ada (normal), tampilkan semua data absen.
+    // 3. LOGIKA RENDER TABEL (Agar search tetap jalan)
     if (typeof window.renderDatabase === 'function') {
         window.renderDatabase(dataToRender); 
     }
@@ -1051,7 +1079,7 @@ window.onload = function() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     window.currentFilter = 'daily'; // Paksa filter ke harian pas pertama buka
 
-    console.log("Sistem Siap, Data sedang ditarik dari Cloud, Broo!");
+    console.log("Sistem Siap, Data sedang ditarik dari Cloud");
 };
 
 function startLiveSync() {
@@ -1098,7 +1126,7 @@ window.renderDatabase = function(dataToRender = null) {
     const container = document.getElementById('full-list');
     
     if (!container) {
-        console.warn("Waduh Jon, elemen 'full-list' nggak ketemu!");
+        console.warn("Waduh, elemen 'full-list' nggak ketemu!");
         return;
     }
 
@@ -1110,7 +1138,7 @@ window.renderDatabase = function(dataToRender = null) {
     if (records.length === 0) {
         container.innerHTML = `
             <div class="text-center py-10 opacity-50">
-                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini, Jon.</p>
+                <p class="text-[10px] text-slate-400 italic uppercase tracking-widest">Belum ada data masuk hari ini.</p>
             </div>`;
         return;
     }
@@ -1173,7 +1201,7 @@ window.downloadExcel = function() {
     const dataAktif = window.attendanceData || [];
     
     if (dataAktif.length === 0) {
-        alert("Belum ada data absen untuk didownload, Jon!");
+        alert("Belum ada data absen untuk didownload");
         return;
     }
 
@@ -1206,7 +1234,7 @@ window.downloadExcel = function() {
         console.log("[SUKSES] Excel berhasil didownload.");
     } catch (error) {
         console.error("Gagal export Excel:", error);
-        alert("Waduh, gagal download Excel-nya, Broo!");
+        alert("Waduh, gagal download Excel-nya");
     }
 };
 
@@ -1216,7 +1244,7 @@ window.downloadBulanan = async function() {
     try {
         const snapshot = await get(ref(db, 'absensi'));
         if (!snapshot.exists()) {
-            alert("Database kosong, Jon!");
+            alert("Database kosong");
             return;
         }
 
@@ -1359,16 +1387,18 @@ window.loadAttendanceData = function(tanggal) {
             Object.keys(data).forEach(key => {
                 window.attendanceData.push(data[key]);
             });
-            console.log(`[REALTIME] ${window.attendanceData.length} data sinkron!`);
         }
         
-        // --- INI KUNCI PEMANGGILNYA ---
-        renderSemua(); 
+        // --- INI WAJIB ADA BIAR ANGKA MANGKIR LANGSUNG BERKURANG ---
+        window.updateDashboard(); 
+        
+        // Kalau lo punya fungsi renderSemua, panggil juga gak apa-apa
+        if (typeof renderSemua === 'function') renderSemua();
     });
 };
 
 window.clearList = function() {
-    if (!confirm("Jon, yakin mau KOSONGKAN semua data absen hari ini?")) return;
+    if (!confirm("yakin mau KOSONGKAN semua data absen hari ini?")) return;
 
     // 1. Bersihkan input pencarian
     const inputCari = document.getElementById('search-name');
@@ -1383,7 +1413,7 @@ window.clearList = function() {
     // 4. (Opsional) Jika pakai Firebase, lo harus hapus di DB juga
     // set(ref(db, 'attendance/' + tanggalHariIni), null);
     
-    console.log("Semua data dibersihkan, Jon!");
+    console.log("Semua data dibersihkan");
 };
 
 // Pastikan inisialisasi awal manggil fungsi yang bener
