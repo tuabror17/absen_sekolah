@@ -194,6 +194,12 @@
     <i data-lucide="users" class="w-5 h-5"></i>
     <span class="text-[10px] font-bold">REKAP</span>
 </button>
+<button onclick="window.exportMangkirToExcel()" 
+        title="Download Mangkir" 
+        class="p-2 glass rounded-xl text-orange-400 hover:bg-orange-500/10 transition-colors flex items-center gap-2">
+    <i data-lucide="user-x" class="w-5 h-5"></i>
+    <span class="text-[10px] font-bold">MANGKIR</span>
+</button>
             <button onclick="clearList()" class="p-2 glass rounded-xl text-red-400 hover:bg-red-500/10 transition-colors ml-2">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>
@@ -504,96 +510,7 @@ const CONFIG = {
   { id: "0121376807", nama: "YASMIN AINUN FADILAH", kelas: "8B" },
   { id: "3111131077", nama: "ZIEDY AURICK EL-SHIRAZY", kelas: "8B" },
 
-  // KELAS 9A
-  { id: "0115235322", nama: "AGHNIA ALTHOFUNNISA", kelas: "9A" },
-  { id: "0105802929", nama: "ALIKA LAZUARDI KHAIRUNNISA", kelas: "9A" },
-  { id: "0122410761", nama: "ARINI SAPHIRA DEWI", kelas: "9A" },
-  { id: "0107913067", nama: "AZKIA NURAJMI", kelas: "9A" },
-  { id: "3109843186", nama: "CUT KANESHA NINDYA ISWANDINY", kelas: "9A" },
-  { id: "0108947633", nama: "DZIKRA ULIA TASHARWAH BARDUDIN", kelas: "9A" },
-  { id: "0116169066", nama: "FREYA NAFISHA UFAIRA VIZIA PUTRI", kelas: "9A" },
-  { id: "0117082159", nama: "HAIFA ILMA ASSIDDIQ", kelas: "9A" },
-  { id: "0118169133", nama: "HAMKA HERIANSYAH PUTRA", kelas: "9A" },
-  { id: "0107657302", nama: "IRSYAD SYAUQI FATHURRAHMAN", kelas: "9A" },
-  { id: "0105225915", nama: "KAINAN MUHAMMAD FADIL", kelas: "9A" },
-  { id: "0102204767", nama: "LAVINA AURELIA NADINE", kelas: "9A" },
-  { id: "0109301348", nama: "M. AUFA SABIQ ISKANDAR", kelas: "9A" },
-  { id: "0108953278", nama: "MELIA RATNA NINGRUM", kelas: "9A" },
-  { id: "0108787350", nama: "MOHAMAD FAJRIAN RAMDHAN", kelas: "9A" },
-  { id: "0113784232", nama: "MUHAMMAD FATHUNA RASYID AL-KINDI", kelas: "9A" },
-  { id: "0104061999", nama: "MUHAMMAD HAFIZH KAMALUDIN", kelas: "9A" },
-  { id: "0107788094", nama: "MUHAMMAD ZHAFRAN MU'TASHIM", kelas: "9A" },
-  { id: "0105483103", nama: "MUSTHAFA BILAL AR RAYAN", kelas: "9A" },
-  { id: "0113016596", nama: "NAAFILA AURORA APRILIA", kelas: "9A" },
-  { id: "0101613901", nama: "NAFIS ARSALAN", kelas: "9A" },
-  { id: "0107140674", nama: "NAZERIL ROSICKY", kelas: "9A" },
-  { id: "0107930342", nama: "NAZWAN FARID AL HAKIM", kelas: "9A" },
-  { id: "0103530070", nama: "RADITYA BARIQ AL NADHIR", kelas: "9A" },
-  { id: "0119541464", nama: "RAIZEL RADITHYA AQILA HELWYN", kelas: "9A" },
-  { id: "0119636378", nama: "SYAFIQ MUHAMMAD AQIL MUQADDAS", kelas: "9A" },
-  { id: "0111852043", nama: "SYAKIRA ABIDAH FARID", kelas: "9A" },
-  { id: "0105746124", nama: "TRIYANA DIMAS PRAYOGA", kelas: "9A" },
-  { id: "0104938603", nama: "TSABITA RAHMANIYA", kelas: "9A" },
-  { id: "0111977263", nama: "TSANIYA KIREYSHA KARENTHIA P", kelas: "9A" },
-  { id: "0101049501", nama: "ZAHRA KHAIRUNNISA HADIANSAH", kelas: "9A" },
-  { id: "3100491094", nama: "ZALFA ZUHDIYAH RAHMAN", kelas: "9A" },
-
-  // KELAS 9B
-  { id: "0114755027", nama: "ADILLA JELITA PUTRI GUSTIANA", kelas: "9B" },
-  { id: "0108918210", nama: "AGNIA FATINA UZMA", kelas: "9B" },
-  { id: "0102651923", nama: "AIRA SRI HERDIAN", kelas: "9B" },
-  { id: "0119382982", nama: "AISHA MUGHNY NUGRAHA", kelas: "9B" },
-  { id: "0101586674", nama: "AL ZENA DZAKIRA AMELIA", kelas: "9B" },
-  { id: "0112261912", nama: "ALIFA NUR ARRASY PUTRI ALHASANI", kelas: "9B" },
-  { id: "3113754599", nama: "ALIFIA LATHIF", kelas: "9B" },
-  { id: "3117772842", nama: "AULIA ALIFATUNNISA", kelas: "9B" },
-  { id: "0119524699", nama: "AZZAHRA NUR ASSYIFA", kelas: "9B" },
-  { id: "0115975216", nama: "DAVITA AZZAHRA PUTRI", kelas: "9B" },
-  { id: "0116803647", nama: "ELKA AULIA ILLIYYINA", kelas: "9B" },
-  { id: "0111183087", nama: "GHAISA ANANDITA PRASETYO", kelas: "9B" },
-  { id: "0119266122", nama: "JILAN HANAN TAQIYYAH", kelas: "9B" },
-  { id: "0116423069", nama: "LIANA DIDI WIJAYA", kelas: "9B" },
-  { id: "0104046707", nama: "LIGAR TIGIN PINASTI", kelas: "9B" },
-  { id: "0112848840", nama: "MAHARANI AZKIA PRUDENCE", kelas: "9B" },
-  { id: "0115984333", nama: "NADINE SALSABIL FAKHIRA", kelas: "9B" },
-  { id: "0117845688", nama: "NATASHA NAJMI NURHAZIMAH", kelas: "9B" },
-  { id: "0102752535", nama: "RABIA ALTAFUNNISA", kelas: "9B" },
-  { id: "0116921210", nama: "RHAINA APRILLANISSA", kelas: "9B" },
-  { id: "3108399710", nama: "SALSABILA AL KHANZA", kelas: "9B" },
-  { id: "3112513651", nama: "SARAH RAMADANI GUNAWAN", kelas: "9B" },
-  { id: "0104613375", nama: "SHAFIRA ALIFATUL HUSNA", kelas: "9B" },
-  { id: "0117638782", nama: "SIPA AULIA PAUJIAH", kelas: "9B" },
-  { id: "0113835590", nama: "SYAHIRA AZKA NAFISA", kelas: "9B" },
-
-  // KELAS 9C
-  { id: "0105585206", nama: "ABIZAR NURON AL KAUTSAR", kelas: "9C" },
-  { id: "0108771584", nama: "ALFAN FADLI RAMADHAN", kelas: "9C" },
-  { id: "0105855911", nama: "AQILA SHIDQI ANANTA", kelas: "9C" },
-  { id: "0113688992", nama: "BANYU PRAGIWAKA", kelas: "9C" },
-  { id: "0114201950", nama: "CEF KAMAL NUR RAFFI", kelas: "9C" },
-  { id: "0118631777", nama: "DIHYAH KHALIFA AL MUJTABA", kelas: "9C" },
-  { id: "0114309152", nama: "FAEYZA RAJENDRA ALFARZANI", kelas: "9C" },
-  { id: "0115414036", nama: "FAHRIE ADHY HARISSA", kelas: "9C" },
-  { id: "0116200122", nama: "FAIQ ANANDA GONZALES", kelas: "9C" },
-  { id: "0114431263", nama: "FAKHRI ABDULLAH MUTTAQIN", kelas: "9C" },
-  { id: "0106230987", nama: "FASLI FAJAR MUHARAM", kelas: "9C" },
-  { id: "0106460483", nama: "FATHY NASRULLOH", kelas: "9C" },
-  { id: "0113827288", nama: "GHAZI ARKAN FAHLEVI", kelas: "9C" },
-  { id: "0115328980", nama: "HAIDAR DZAKY", kelas: "9C" },
-  { id: "0116705318", nama: "HELMY MUHAMMAD RABBANI", kelas: "9C" },
-  { id: "3107302765", nama: "KHAIRUL AZAM RAMADHAN", kelas: "9C" },
-  { id: "0109301030", nama: "LAZUARDI AZRA MARDIANA", kelas: "9C" },
-  { id: "0107857353", nama: "MIFZAL MUHAMMAD NIDAL", kelas: "9C" },
-  { id: "0117431097", nama: "MUHAMAD PAHRI ALGHIPARI", kelas: "9C" },
-  { id: "0119270443", nama: "MUHAMAD WAFI QINTHARA", kelas: "9C" },
-  { id: "0113717583", nama: "MUHAMMAD FABIAN YAKUB", kelas: "9C" },
-  { id: "0107331827", nama: "MUHAMMAD RAZKA IHSAN MAULUD", kelas: "9C" },
-  { id: "3104895436", nama: "MUHAMMAD RIZKI MUHARAM", kelas: "9C" },
-  { id: "0118235431", nama: "RIZKY AMAD MAULANA", kelas: "9C" },
-  { id: "0117523618", nama: "SHAKIEL ATHAYA JUANSYAH", kelas: "9C" },
-  { id: "0108458728", nama: "SIGIT SASIKIRANA", kelas: "9C" },
-  { id: "0106600474", nama: "SYUJA MUZZAKY AWALLUDIN HILMANSYAH", kelas: "9C" },
-
+ 
 // --- KELAS 10  ---
   { id: "3104010439", nama: "ADAM RAYYAN MAHENDRA", kelas: "10 SMA" },
   { id: "0107853083", nama: "ALFAZ ARVA BAIHAQI", kelas: "10 SMA" },
@@ -631,19 +548,11 @@ const CONFIG = {
   { id: "0083504436", nama: "NAUFAL SABIQ AMMARUDIN", kelas: "11 SMA" },
   { id: "0085856888", nama: "RADITYA TRI JAYADI", kelas: "11 SMA" },
   { id: "0086556301", nama: "REVA AHMAD KHAIRULLAH", kelas: "11 SMA" },
-  { id: "0155880945", nama: "RIDHO MUHAMMAD SAID RAMADHAN", kelas: "11 SMA" },
+  { id: "0155880945", nama: "RIDHO MUHAMMAD SAID RAMADHAN", kelas: "11 SMA" }
 
-  // --- KELAS 12  ---
-  { id: "0084629419", nama: "FIRYAL NAURA ALYA MUKBITHA", kelas: "12 SMA" },
-  { id: "0073861440", nama: "GITA PRIANTO", kelas: "12 SMA" },
-  { id: "0078635956", nama: "KHAULAH NAZLA SURYA", kelas: "12 SMA" },
-  { id: "0084868144", nama: "NAURA AGUSTINA", kelas: "12 SMA" },
-  { id: "0084256910", nama: "NURUL AZKIYA TRIDANIASWATI", kelas: "12 SMA" },
-  { id: "0071310896", nama: "PUTRI NILAM SINTIA", kelas: "12 SMA" },
-  { id: "0087039263", nama: "VICI NABILAH RAMADHANI", kelas: "12 SMA" },
-  { id: "0088185113", nama: "VICI NAILAH RAMADHANI", kelas: "12 SMA" },
-  { id: "0078123238", nama: "ZALFA LINGGAR UTTAMI", kelas: "12 SMA" }
-];
+    ];
+    console.log("JUMLAH TOTAL SISWA AKTIF:", siswa.length);
+
 
 let attendanceData = [];
 let lastScannedId = null;
@@ -993,47 +902,72 @@ window.renderBelumAbsen = function() {
 
 // 2. FUNGSI UPDATE DASHBOARD (SINKRON DENGAN HTML LO)
 window.updateDashboard = function(dataToRender = null) {
-    // Ambil data asli dari memori global
+    // 1. Ambil data absensi
     const data = window.attendanceData || [];
-    const totalSiswa = (typeof siswa !== 'undefined') ? siswa.length : 258;
     
-    // 1. HITUNG STATISTIK (SINKRON DENGAN DATABASE)
+    // 2. Ambil total siswa dari array (Dynamic, gak perlu hardcode lagi)
+    // Kalau siswa belum ke-load, kasih 0 biar gak error
+    const totalSiswa = (typeof siswa !== 'undefined') ? siswa.length : 0;
     
-    // Hitung Masuk: Cek field 'pukul_masuk'
-    const masuk = data.filter(item => 
-        item.pukul_masuk && item.pukul_masuk !== "--:--"
-    ).length;
-
-    // Hitung Pulang: Cek field 'pukul_pulang'
-    const pulang = data.filter(item => 
-        item.pukul_pulang && item.pukul_pulang !== "--:--"
-    ).length;
-
-    // Hitung Terlambat: Cek field 'late'
-    const terlambat = data.filter(item => 
-        item.late === true || item.late === "true"
-    ).length;
-
-    // Hitung Mangkir
+    // 3. Hitung statistik
+    const masuk = data.filter(item => item.pukul_masuk && item.pukul_masuk !== "--:--").length;
+    const pulang = data.filter(item => item.pukul_pulang && item.pukul_pulang !== "--:--").length;
+    const terlambat = data.filter(item => item.late === true || item.late === "true").length;
     const mangkir = Math.max(0, totalSiswa - masuk);
 
-    // 2. UPDATE ANGKA KE UI
-    if (document.getElementById('dash-hadir')) document.getElementById('dash-hadir').innerText = masuk;
-    if (document.getElementById('dash-pulang')) document.getElementById('dash-pulang').innerText = pulang;
-    if (document.getElementById('dash-telat')) document.getElementById('dash-telat').innerText = terlambat;
-    if (document.getElementById('dash-belum')) document.getElementById('dash-belum').innerText = mangkir;
-    
-    // 3. LOGIKA RENDER TABEL (Agar search tetap jalan)
-    if (typeof window.renderDatabase === 'function') {
-        window.renderDatabase(dataToRender); 
-    }
+    // 4. Update UI
+    const elMap = {
+        'dash-hadir': masuk,
+        'dash-pulang': pulang,
+        'dash-telat': terlambat,
+        'dash-belum': mangkir
+    };
 
-    // 4. Render List Belum Absen
-    if (typeof window.renderBelumAbsen === 'function') {
-        window.renderBelumAbsen();
+    for (const [id, value] of Object.entries(elMap)) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
     }
+    
+    // 5. Trigger Render Tabel
+    if (typeof window.renderDatabase === 'function') window.renderDatabase(dataToRender);
+    if (typeof window.renderBelumAbsen === 'function') window.renderBelumAbsen();
 };
 
+window.exportMangkirToExcel = function() {
+    // Fungsi pembantu buat bersihin ID (ilangin 0 di depan)
+    const cleanId = (id) => String(id).replace(/^0+/, '').trim();
+
+    // 1. Bersihkan semua ID dari Firebase
+    const hadirIds = new Set((window.attendanceData || []).map(item => cleanId(item.student_id)));
+
+    // 2. Bandingkan dengan Master Siswa (yang juga dibersihkan)
+    const dataMangkir = siswa.filter(s => {
+        const idMaster = cleanId(s.id);
+        return !hadirIds.has(idMaster);
+    });
+
+    console.log("Data mangkir ditemukan:", dataMangkir.length);
+
+    if (dataMangkir.length === 0) {
+        alert("Semua siswa sudah absen!");
+        return;
+    }
+
+    // 3. Generate Excel
+    const wsData = dataMangkir.map((s, index) => ({
+        "No": index + 1,
+        "ID Siswa": s.id,
+        "Nama": s.nama,
+        "Kelas": s.kelas,
+        "Status": "Mangkir"
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, "Data Mangkir");
+    const tanggal = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+    XLSX.writeFile(wb, `Laporan_Mangkir_${tanggal}.xlsx`);
+};
 // 2. FUNGSI PENCARIAN (Udah gue benerin alurnya)
 window.handleSearch = function() {
     const inputField = document.getElementById('search-name'); 
